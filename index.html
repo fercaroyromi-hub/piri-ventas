@@ -77,6 +77,20 @@ button{font:inherit;cursor:pointer}
 .mbars div.has i{background:var(--navy2)}
 .mbars small{font-size:10px;color:var(--muted);font-weight:600;text-transform:capitalize}
 .mbars b{font-size:9.5px;color:var(--ink);white-space:nowrap}
+.rk>div{min-width:0}
+.rk.rk2{grid-template-columns:1fr auto}
+.periodo{display:flex;gap:8px;margin-top:14px}
+.periodo button,.periodo label{flex:1;position:relative;padding:11px 10px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:14px;text-align:center}
+.periodo label select{appearance:none;-webkit-appearance:none;border:0;background:none;font:inherit;color:inherit;width:100%;text-align:center;text-align-last:center;outline:none;cursor:pointer}
+.periodo .on{background:var(--navy);border-color:var(--navy);color:#fff}
+[data-theme=dark] .periodo .on{background:var(--gold);border-color:var(--gold);color:#0F284A}
+.periodo select option{color:#1C2433;background:#fff}
+.mbars.m12{gap:5px}
+.mbars.m12 i{max-width:22px}
+.mbars.m12 b{font-size:8.5px}
+.mbars div{cursor:pointer}
+.mbars div.fut{opacity:.35;cursor:default}
+.hero .sub{gap:8px}
 .rk{display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:center;margin-top:12px}
 .rk:first-of-type{margin-top:0}
 .rk .n{width:24px;height:24px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--ink)}
@@ -137,6 +151,9 @@ textarea{resize:none;height:72px}
 .chips button{flex-shrink:0;padding:9px 14px;border-radius:20px;border:1.5px solid var(--line);background:var(--card);color:var(--muted);font-weight:600;font-size:13px}
 .chips button.on{background:var(--navy);border-color:var(--ink);color:#fff}
 .chips button small{margin-left:5px;opacity:.75}
+.sepmes{margin:22px 4px 2px;font-size:12px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold)}
+.sepmes:first-child{margin-top:14px}
+.pc-h small .nro{display:inline;font-size:11.5px;color:var(--ink)}
 .pc{background:var(--card);border-radius:18px;padding:15px;margin-top:12px;box-shadow:0 4px 14px rgba(15,40,74,.06);border-left:4px solid var(--line)}
 .pc.e-prep{border-left-color:#F59E0B}.pc.e-pronto{border-left-color:var(--blue)}.pc.e-ent{border-left-color:var(--ok)}.pc.e-anul{border-left-color:#9CA3AF;opacity:.65}
 .pc-h{display:flex;gap:8px;align-items:flex-start}
@@ -326,12 +343,25 @@ const LS = {
   set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} },
   del: k => { try { localStorage.removeItem(k); } catch (e) {} }
 };
-const S = { pin: LS.get('piri.pin') || '', vendedor: LS.get('piri.vend') || '', ventas: [], productos: [], clientes: [], vendedores: [], view: 'inicio', filtro: 'pend', q: '', editId: null, selDia: null };
+const S = { pin: LS.get('piri.pin') || '', vendedor: LS.get('piri.vend') || '', ventas: [], productos: [], clientes: [], vendedores: [], view: 'inicio', filtro: 'pend', q: '', editId: null, periodo: 'anio' };
 
 function toast(msg, err) {
   const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
   clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast' + (err ? ' err' : ''), 3000);
 }
+
+/* ================= ORDEN CRONOLÓGICO ================= */
+// Más nuevo primero. Si dos pedidos tienen el mismo día, va primero el cargado después.
+const idNum = id => parseInt(String(id).replace(/\D/g, ''), 10) || 0;
+const diaDe = f => f ? new Date(f).toLocaleDateString('en-CA') : '0000-00-00';
+function ordenar(ventas) {
+  const L = (ventas || []).slice().sort((a, b) => diaDe(b.fecha).localeCompare(diaDe(a.fecha)) || idNum(b.id) - idNum(a.id));
+  // Nº correlativo por fecha: el pedido más antiguo es el Nº 1
+  L.slice().reverse().forEach((v, i) => { v.nro = i + 1; });
+  return L;
+}
+const nroDe = id => { const v = S.ventas.find(x => x.id === id); return v ? 'Nº ' + v.nro : ''; };
+const ES_ENVIO = p => /^ENV[IÍ]O/.test(String(p || '').trim().toUpperCase());
 
 /* ================= CONEXIÓN CON LA PLANILLA ================= */
 let pendientesApi = 0;
@@ -343,7 +373,7 @@ async function api(action, data = {}) {
     catch (e) { throw new Error('Sin conexión a internet'); }
     let j; try { j = await r.json(); } catch (e) { throw new Error('No se pudo leer la planilla'); }
     if (!j.ok) throw new Error(j.error || 'Error');
-    S.ventas = j.ventas; S.productos = j.productos; S.clientes = j.clientes; S.vendedores = j.vendedores;
+    S.ventas = ordenar(j.ventas); S.productos = j.productos; S.clientes = j.clientes; S.vendedores = j.vendedores;
     render();
     return j;
   } finally {
@@ -403,93 +433,97 @@ function render() {
   $('#avI').textContent = S.vendedor ? S.vendedor[0] : '?';
   $('#avN').textContent = S.vendedor || 'Elegir';
   $('#dlProd').innerHTML = S.productos.map(p => `<option value="${esc(p)}">`).join('');
-  $('#dlCli').innerHTML = S.clientes.map(c => `<option value="${esc(c.nombre)}">`).join('');
+  $('#dlCli').innerHTML = S.clientes.map(c => `<option value="${esc(fmtNombre(c.nombre))}">`).join('');
   if (S.view === 'inicio') renderInicio();
   if (S.view === 'pedidos') renderPedidos();
 }
 
 /* ================= PANEL ================= */
+function setPeriodo(v) { S.periodo = v; renderInicio(); }
 function renderInicio() {
   const A = S.ventas.filter(v => v.estado !== 'Anulado' && v.fecha).map(v => Object.assign({}, v, { d: new Date(v.fecha) }));
-  const now = new Date(), y = now.getFullYear(), m = now.getMonth(), dia = now.getDate();
-  const hoy0 = new Date(y, m, dia), iniMes = new Date(y, m, 1);
-  const diasPrev = new Date(y, m, 0).getDate();
-  const iniPrev = new Date(y, m - 1, 1), finPrev = new Date(y, m - 1, Math.min(dia, diasPrev) + 1);
-  const iniSem = new Date(y, m, dia - (now.getDay() + 6) % 7);
+  const now = new Date(), y = now.getFullYear(), mHoy = now.getMonth();
   const sum = l => l.reduce((s, v) => s + v.total, 0);
-  const rango = (a, b) => A.filter(v => v.d >= a && (!b || v.d < b));
-  const mes = rango(iniMes), prev = rango(iniPrev, finPrev);
-  const tMes = sum(mes), tPrev = sum(prev);
-  const hoyL = rango(hoy0), semL = rango(iniSem);
-  const cobMes = sum(mes.filter(v => v.cobrado));
-  const aCob = A.filter(v => !v.cobrado), porEnt = A.filter(v => v.estado !== 'Entregado');
-  const unid = mes.reduce((s, v) => s + v.items.reduce((a, i) => a + i.cantidad, 0), 0);
+  const unidades = l => l.reduce((s, v) => s + v.items.reduce((a, i) => a + (ES_ENVIO(i.producto) ? 0 : i.cantidad), 0), 0);
+  const delMes = (mm) => A.filter(v => v.d.getFullYear() === y && v.d.getMonth() === mm);
+  const anio = A.filter(v => v.d.getFullYear() === y);
 
-  let delta = '<span class="delta eq">Primer mes con datos</span>';
-  if (tPrev > 0) {
-    const p = Math.round((tMes - tPrev) / tPrev * 100);
-    delta = `<span class="delta ${p > 0 ? 'up' : p < 0 ? 'down' : 'eq'}">${p > 0 ? '▲' : p < 0 ? '▼' : '='} ${Math.abs(p)}%</span> vs. mismo período de ${MESES[(m + 11) % 12]}`;
+  // período elegido: 'anio' o número de mes (0-11)
+  if (S.periodo == null) S.periodo = 'anio';
+  const esAnio = S.periodo === 'anio';
+  const P = esAnio ? anio : delMes(S.periodo);
+  const nomP = esAnio ? String(y) : MESES[S.periodo];
+
+  const tP = sum(P), mesActual = delMes(mHoy);
+  const aCob = A.filter(v => !v.cobrado), porEnt = A.filter(v => v.estado === 'En preparación' || v.estado === 'Pronto');
+  const cobP = sum(P.filter(v => v.cobrado));
+
+  // comparación (solo cuando se elige un mes)
+  let sub = `<span class="delta eq">${P.length} pedido${P.length === 1 ? '' : 's'} · ${unidades(P)} unidades</span>`;
+  if (!esAnio && S.periodo > 0) {
+    const tAnt = sum(delMes(S.periodo - 1));
+    if (tAnt > 0) {
+      const pc = Math.round((tP - tAnt) / tAnt * 100);
+      sub += `<span class="delta ${pc > 0 ? 'up' : pc < 0 ? 'down' : 'eq'}">${pc > 0 ? '▲' : pc < 0 ? '▼' : '='} ${Math.abs(pc)}%</span> vs. ${MESES[S.periodo - 1]}`;
+    }
   }
 
-  // ventas por día del mes
-  const nDias = new Date(y, m + 1, 0).getDate(), porDia = Array(nDias).fill(0);
-  mes.forEach(v => porDia[v.d.getDate() - 1] += v.total);
-  const maxD = Math.max(...porDia, 1);
-  const barsDia = porDia.map((t, i) =>
-    `<i class="${i + 1 === dia ? 'hoy' : t ? 'has' : ''}${S.selDia === i ? ' sel' : ''}" style="height:${Math.max(3, t / maxD * 100)}%" onclick="selDia(${i})"></i>`).join('');
-  const sd = S.selDia != null ? S.selDia : dia - 1;
-  const cnt = mes.filter(v => v.d.getDate() === sd + 1).length;
-  const capDia = `${sd + 1} de ${MESES[m]}: <b>${fmt(porDia[sd])}</b> · ${cnt} venta${cnt === 1 ? '' : 's'}`;
+  // selector de período
+  let opts = '';
+  for (let i = mHoy; i >= 0; i--) opts += `<option value="${i}" ${S.periodo === i ? 'selected' : ''}>${MESES[i].charAt(0).toUpperCase() + MESES[i].slice(1)}</option>`;
+  const selector = `<div class="periodo">
+      <button class="${esAnio ? 'on' : ''}" onclick="setPeriodo('anio')">Año ${y}</button>
+      <label class="${esAnio ? '' : 'on'}"><select onchange="setPeriodo(Number(this.value))">
+        <option value="" disabled ${esAnio ? 'selected' : ''}>Mes ▾</option>${opts}</select></label>
+    </div>`;
 
-  // últimos 6 meses
-  const meses = [];
-  for (let i = 5; i >= 0; i--) { const a = new Date(y, m - i, 1), b = new Date(y, m - i + 1, 1); meses.push({ n: MESES[a.getMonth()].slice(0, 3), t: sum(rango(a, b)), act: i === 0 }); }
+  // ventas por mes (12 meses del año) — tocar una barra elige ese mes
+  const meses = MESES.map((n, i) => ({ i, n: n.slice(0, 3), t: sum(delMes(i)) }));
   const maxM = Math.max(...meses.map(x => x.t), 1);
-  const barsMes = meses.map(x => `<div class="${x.act ? 'act' : x.t ? 'has' : ''}"><b>${x.t ? fmtK(x.t) : ''}</b><i style="height:${Math.max(3, x.t / maxM * 100)}%"></i><small>${x.n}</small></div>`).join('');
+  const barsMes = meses.map(x => {
+    const cls = (!esAnio && S.periodo === x.i) ? 'act' : (x.i === mHoy && esAnio) ? 'act' : x.t ? 'has' : '';
+    const futuro = x.i > mHoy;
+    return `<div class="${cls}${futuro ? ' fut' : ''}" ${futuro ? '' : `onclick="setPeriodo(${x.i})"`}><b>${x.t ? fmtK(x.t) : ''}</b><i style="height:${Math.max(3, x.t / maxM * 100)}%"></i><small>${x.n}</small></div>`;
+  }).join('');
 
-  // ranking productos
-  const base = mes.length ? mes : A, agg = {};
-  base.forEach(v => v.items.forEach(i => { const a = agg[i.producto] || (agg[i.producto] = { c: 0, t: 0 }); a.c += i.cantidad; a.t += i.cantidad * i.precio; }));
+  // ranking productos del período
+  const agg = {};
+  P.forEach(v => v.items.forEach(i => { if (ES_ENVIO(i.producto)) return; const a = agg[i.producto] || (agg[i.producto] = { c: 0, t: 0 }); a.c += i.cantidad; a.t += i.cantidad * i.precio; }));
   const top = Object.entries(agg).sort((a, b) => b[1].c - a[1].c || b[1].t - a[1].t).slice(0, 5);
   const maxT = top.length ? top[0][1].c : 1;
   const rkProd = top.length ? top.map(([p, a], i) =>
     `<div class="rk"><span class="n">${i + 1}</span><div><div class="nm">${esc(p)}</div><div class="tr"><i style="width:${a.c / maxT * 100}%"></i></div></div><div class="v">${a.c} u.<small>${fmt(a.t)}</small></div></div>`).join('')
-    : '<div class="vac">Todavía no hay ventas</div>';
+    : `<div class="vac">Sin ventas en ${nomP}</div>`;
 
   const grupo = (campo, lista) => {
-    const g = {}; mes.forEach(v => { g[v[campo]] = (g[v[campo]] || 0) + v.total; });
-    const L = lista.map(k => [k, g[k] || 0]).filter(([k, t]) => t || lista.length <= 3), mx = Math.max(...L.map(x => x[1]), 1);
-    return L.map(([k, t]) => `<div class="rk" style="grid-template-columns:1fr auto"><div><div class="nm">${esc(k)}</div><div class="tr"><i style="width:${t / mx * 100}%;background:var(--gold)"></i></div></div><div class="v">${fmtK(t)}</div></div>`).join('');
+    const g = {}, c = {}; P.forEach(v => { g[v[campo]] = (g[v[campo]] || 0) + v.total; c[v[campo]] = (c[v[campo]] || 0) + 1; });
+    const L = lista.map(k => [k, g[k] || 0]), mx = Math.max(...L.map(x => x[1]), 1);
+    return L.map(([k, t]) => `<div class="rk rk2"><div><div class="nm">${esc(k)}</div><div class="tr"><i style="width:${t / mx * 100}%;background:var(--gold)"></i></div></div><div class="v">${fmt(t)}<small>${c[k] || 0} pedido${c[k] === 1 ? '' : 's'}</small></div></div>`).join('');
   };
 
   const fechaTxt = now.toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long' });
   $('#v-inicio').innerHTML = `
     <div class="hola">Hola${S.vendedor ? ', ' + esc(S.vendedor) : ''} 👋</div>
     <div class="fechaHoy">${fechaTxt}</div>
-    <div class="hero"><span>Vendido en ${MESES[m]}</span><div class="big">${fmt(tMes)}</div>
-      <div class="sub">${delta}</div></div>
+    ${selector}
+    <div class="hero"><span>Vendido en ${nomP}</span><div class="big">${fmt(tP)}</div>
+      <div class="sub">${sub}</div></div>
     <div class="kpis">
-      <div class="kpi"><span>Hoy</span><b>${fmt(sum(hoyL))}</b><em>${hoyL.length} venta${hoyL.length === 1 ? '' : 's'}</em></div>
-      <div class="kpi"><span>Esta semana</span><b>${fmt(sum(semL))}</b><em>${semL.length} venta${semL.length === 1 ? '' : 's'}</em></div>
-      <div class="kpi ok"><span>Cobrado del mes</span><b>${fmt(cobMes)}</b><em>${mes.length} pedidos · ${unid} unidades</em></div>
-      <div class="kpi warn"><span>Por cobrar</span><b>${fmt(sum(aCob))}</b><em>${aCob.length} pedido${aCob.length === 1 ? '' : 's'}</em></div>
+      <div class="kpi"><span>Este mes</span><b>${fmt(sum(mesActual))}</b><em>${mesActual.length} venta${mesActual.length === 1 ? '' : 's'} en ${MESES[mHoy]}</em></div>
+      <div class="kpi"><span>Pedidos ${esAnio ? 'del año' : 'del mes'}</span><b>${P.length}</b><em>${unidades(P)} unidades</em></div>
+      <div class="kpi ok"><span>Cobrado ${esAnio ? 'del año' : 'del mes'}</span><b>${fmt(cobP)}</b><em>${P.filter(v => v.cobrado).length} pedidos cobrados</em></div>
+      <div class="kpi warn"><span>Por cobrar</span><b>${fmt(sum(aCob))}</b><em>${aCob.length} pedido${aCob.length === 1 ? '' : 's'} en total</em></div>
     </div>
     <div class="alerts">
       <button class="alert a1" onclick="verPedidos('pend')"><div><b>${porEnt.length}</b>por entregar</div></button>
       <button class="alert a2" onclick="verPedidos('cobrar')"><div><b>${aCob.length}</b>sin cobrar</div></button>
     </div>
-    <div class="card"><h3>Ventas por día <em>${MESES[m]}</em></h3>
-      <div class="bars">${barsDia}</div>
-      <div class="axis"><span>1</span><span>${Math.round(nDias / 2)}</span><span>${nDias}</span></div>
-      <div class="cap">${capDia}</div></div>
-    <div class="card"><h3>Últimos 6 meses</h3><div class="mbars">${barsMes}</div></div>
-    <div class="card"><h3>Más vendidos <em>${mes.length ? MESES[m] : 'histórico'}</em></h3>${rkProd}</div>
-    <div class="split">
-      <div class="card"><h3>Vendedor</h3>${grupo('vendedor', S.vendedores)}</div>
-      <div class="card"><h3>Canal</h3>${grupo('canal', ['Instagram', 'WhatsApp', 'Otro'])}</div>
-    </div>`;
+    <div class="card"><h3>Ventas por mes <em>${y}</em></h3><div class="mbars m12">${barsMes}</div>
+      <div class="cap">Tocá un mes para ver su detalle</div></div>
+    <div class="card"><h3>Más vendidos <em>${nomP}</em></h3>${rkProd}</div>
+    <div class="card"><h3>Vendedor <em>${nomP}</em></h3>${grupo('vendedor', S.vendedores)}</div>
+    <div class="card"><h3>Canal <em>${nomP}</em></h3>${grupo('canal', ['Instagram', 'WhatsApp', 'Otro'])}</div>`;
 }
-function selDia(i) { S.selDia = i; renderInicio(); }
 function verPedidos(f) { S.filtro = f; ir('pedidos'); }
 
 /* ================= PEDIDOS ================= */
@@ -507,8 +541,15 @@ function renderPedidos() {
     `<button class="${S.filtro === k ? 'on' : ''}" onclick="S.filtro='${k}';renderPedidos()">${n}<small>${S.ventas.filter(f).length}</small></button>`).join('');
   const q = S.q.trim().toUpperCase();
   let L = S.ventas.filter(FILTROS[S.filtro][1]);
-  if (q) L = L.filter(v => (v.id + ' ' + v.cliente + ' ' + v.items.map(i => i.producto).join(' ')).toUpperCase().includes(q));
-  $('#lista').innerHTML = L.length ? L.map(card).join('')
+  if (q) L = L.filter(v => ('Nº' + v.nro + ' ' + v.nro + ' ' + v.id + ' ' + v.cliente + ' ' + v.items.map(i => i.producto).join(' ')).toUpperCase().includes(q));
+  let mesAnt = '';
+  const conMeses = L.map(v => {
+    const d = v.fecha ? new Date(v.fecha) : null;
+    const m = d ? MESES[d.getMonth()] + ' ' + d.getFullYear() : 'Sin fecha';
+    const sep = m !== mesAnt ? `<div class="sepmes">${m}</div>` : '';
+    mesAnt = m; return sep + card(v);
+  });
+  $('#lista').innerHTML = L.length ? conMeses.join('')
     : `<div class="empty"><b>✓</b>${q ? 'No hay resultados para la búsqueda' : 'No hay pedidos en esta lista'}</div>`;
 }
 
@@ -527,7 +568,7 @@ function card(v) {
     if (!v.cobrado) acc += `<button class="ac ac-cob" onclick="setCobro(this,'${v.id}')">💵 Marcar cobrado</button>`;
   }
   return `<article class="pc e-${cls}">
-    <div class="pc-h"><div><b>${esc(v.cliente)}</b><small>${v.id} · ${esc(v.vendedor)} · ${esc(v.canal)}</small><span class="pc-fecha">📅 Pedido: ${f}</span></div>
+    <div class="pc-h"><div><b>${esc(fmtNombre(v.cliente))}</b><small><b class="nro">Nº ${v.nro}</b> · ${esc(v.vendedor)} · ${esc(v.canal)}</small><span class="pc-fecha">📅 Pedido: ${f}</span></div>
       ${v.tel ? `<a class="ic wa" href="${waLink(v)}" target="_blank" rel="noopener" aria-label="WhatsApp">${ICON_WA}</a>` : ''}
       <button class="ic" onclick="editar('${v.id}')" aria-label="Editar">${ICON_ED}</button></div>
     <div class="pc-items">${items}</div>
@@ -557,16 +598,24 @@ async function setEstado(btn, id, est) {
   const v = S.ventas.find(x => x.id === id); if (!v) return;
   if (est === 'Pronto' && v.tel) window.open(waLink(v, 'pronto'), '_blank');
   btn.disabled = true; btn.textContent = 'Guardando…';
-  try { await api('estado', { id, campo: 'estado', valor: est }); toast(est === 'Pronto' ? '✓ ' + id + ' marcado como pronto' : '✓ ' + id + ' entregado'); }
+  try { await api('estado', { id, campo: 'estado', valor: est }); toast(est === 'Pronto' ? '✓ Pedido ' + nroDe(id) + ' marcado como pronto' : '✓ Pedido ' + nroDe(id) + ' entregado'); }
   catch (e) { toast(e.message, true); renderPedidos(); }
 }
 async function setCobro(btn, id) {
   btn.disabled = true; btn.textContent = 'Guardando…';
-  try { await api('estado', { id, campo: 'cobrado', valor: true }); toast('✓ ' + id + ' cobrado'); }
+  try { await api('estado', { id, campo: 'cobrado', valor: true }); toast('✓ Pedido ' + nroDe(id) + ' cobrado'); }
   catch (e) { toast(e.message, true); renderPedidos(); }
 }
 
 /* ================= NUEVA VENTA / EDITAR ================= */
+/* Nombre: primera palabra con mayúscula inicial, apellidos en MAYÚSCULAS → "Juan PÉREZ GÓMEZ" */
+function fmtNombreVivo(s) {
+  let i = 0;
+  return String(s || '').replace(/\S+/g, w => (i++ === 0)
+    ? w.charAt(0).toLocaleUpperCase('es-UY') + w.slice(1).toLocaleLowerCase('es-UY')
+    : w.toLocaleUpperCase('es-UY'));
+}
+const fmtNombre = s => fmtNombreVivo(String(s || '').trim().replace(/\s+/g, ' '));
 const REGLAS = {
   num:    [/\D/g, 'Solo se pueden ingresar números'],
   letras: [/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ' ]/g, 'Este campo solo lleva letras'],
@@ -582,8 +631,8 @@ document.addEventListener('input', e => {
   const el = e.target, r = REGLAS[el.dataset.f]; if (!r) return;
   const limpio = el.value.replace(r[0], '');
   if (limpio !== el.value) aviso(el, r[1]);
-  const fin = el.dataset.f === 'prod' ? limpio.toUpperCase() : limpio;
-  if (fin !== el.value) el.value = fin;
+  const fin = el.dataset.f === 'prod' ? limpio.toUpperCase() : el.id === 'fCliente' ? fmtNombreVivo(limpio) : limpio;
+  if (fin !== el.value) { const pos = el.selectionStart; el.value = fin; try { el.setSelectionRange(pos, pos); } catch (er) {} }
   calcTotal();
 });
 document.addEventListener('change', e => {
@@ -640,12 +689,12 @@ function nuevoForm() {
 function editar(id) {
   const v = S.ventas.find(x => x.id === id); if (!v) return;
   nuevoForm(); S.editId = id;
-  $('#fCliente').value = v.cliente; $('#fTel').value = v.tel; $('#fNotas').value = v.notas;
+  $('#fCliente').value = fmtNombre(v.cliente); $('#fTel').value = v.tel; $('#fNotas').value = v.notas;
   $('#fFecha').value = isoDe(v.fecha);
   segSet('#fCanal', v.canal); segSet('#fEstado', v.estado === 'Anulado' ? 'En preparación' : v.estado);
   $('#fCob').classList.toggle('on', v.cobrado);
   $('#items').innerHTML = ''; v.items.forEach(addItem);
-  $('#editId').textContent = id; $('#editBar').hidden = false;
+  $('#editId').textContent = 'Nº ' + v.nro; $('#editBar').hidden = false;
   $('#btnAnular').hidden = v.estado === 'Anulado'; $('#btnGuardar').textContent = 'Guardar cambios';
   ir('nueva');
 }
@@ -667,18 +716,18 @@ async function guardar() {
     items.push({ producto: p.value.trim().toUpperCase(), cantidad: Number(c.value), precio: Number(pr.value) });
   }
   const orig = S.editId ? S.ventas.find(x => x.id === S.editId) : null;   // al editar se mantiene quién vendió
-  const venta = { fecha: fe.value, vendedor: orig ? orig.vendedor : S.vendedor, canal: segVal('#fCanal'), cliente: cli.value.trim(), tel: tel.value.trim(),
+  const venta = { fecha: fe.value, vendedor: orig ? orig.vendedor : S.vendedor, canal: segVal('#fCanal'), cliente: fmtNombre(cli.value), tel: tel.value.trim(),
     items, estado: segVal('#fEstado'), cobrado: $('#fCob').classList.contains('on'), notas: $('#fNotas').value.trim() };
   const b = $('#btnGuardar'), editando = S.editId; b.disabled = true; b.textContent = 'Guardando…';
   try {
-    if (editando) { await api('editar', { id: editando, venta }); toast('✓ Cambios guardados en ' + editando); nuevoForm(); ir('pedidos'); }
-    else { const j = await api('guardar', { venta }); toast('✓ Venta ' + j.id + ' guardada'); nuevoForm(); ir('inicio'); }
+    if (editando) { await api('editar', { id: editando, venta }); toast('✓ Cambios guardados en el pedido ' + nroDe(editando)); nuevoForm(); ir('pedidos'); }
+    else { const j = await api('guardar', { venta }); toast('✓ Pedido ' + nroDe(j.id) + ' guardado'); nuevoForm(); ir('inicio'); }
   } catch (e) { toast(e.message, true); b.textContent = editando ? 'Guardar cambios' : 'Guardar venta'; }
   b.disabled = false;
 }
 async function anular() {
-  const id = S.editId; if (!id || !confirm('¿Anular la venta ' + id + '? Queda registrada como anulada y no suma en el panel.')) return;
-  try { await api('estado', { id, campo: 'estado', valor: 'Anulado' }); toast('Venta ' + id + ' anulada'); nuevoForm(); ir('pedidos'); }
+  const id = S.editId; if (!id || !confirm('¿Anular el pedido ' + nroDe(id) + '? Queda registrada como anulada y no suma en el panel.')) return;
+  try { await api('estado', { id, campo: 'estado', valor: 'Anulado' }); toast('Pedido ' + nroDe(id) + ' anulado'); nuevoForm(); ir('pedidos'); }
   catch (e) { toast(e.message, true); }
 }
 

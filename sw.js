@@ -1,5 +1,5 @@
 // Pirí Ventas · service worker (permite instalarla como app)
-const CACHE = 'piri-ventas-v4';
+const CACHE = 'piri-ventas-v6';
 const ARCHIVOS = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'logo.png'];
 
 self.addEventListener('install', e => {
