@@ -1,0 +1,16 @@
+{
+  "name": "Mi Freidora",
+  "short_name": "Mi Freidora",
+  "description": "Recetas para freidora de aire: qué cocinar con lo que hay en la heladera y viandas de la semana.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3F6F1",
+  "theme_color": "#2E7A4E",
+  "lang": "es",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
