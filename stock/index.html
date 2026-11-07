@@ -204,6 +204,10 @@ textarea{resize:none;height:64px}
 .ley i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}.ley i.m{background:var(--navy3)}.ley i.g{background:var(--gold)}
 .n small{display:block;font-size:10px;color:var(--muted);font-weight:600}
 .seg.pills button{flex:0 0 auto;min-width:0;padding:10px 14px;font-size:13px}
+.th{width:54px;height:54px;border-radius:12px;object-fit:cover;flex-shrink:0;background:#fff;border:1px solid var(--line)}
+.fprev{display:block;width:100%;max-width:420px;aspect-ratio:1;object-fit:contain;margin:0 auto 12px;border-radius:16px;background:#fff;border:1px solid var(--line)}
+.chk{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:14px;font-weight:600;color:var(--txt)}
+.chk input{width:22px;height:22px;accent-color:var(--navy3)}
 .set .li .ic{background:var(--soft);color:var(--ink)}
 @media(min-width:700px){.view,.appbar{max-width:640px;margin:0 auto}.appbar{border-radius:0 0 18px 18px}.nav,.sheet{max-width:640px;margin:0 auto}}
 </style>
@@ -267,7 +271,7 @@ const LS = { get: k => { try { return localStorage.getItem(k) } catch (e) { retu
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = n => (Math.round(n * 100) / 100).toLocaleString('es-UY');
 const pesos = n => '$ ' + Math.round(n).toLocaleString('es-UY');
-const S = { pin: LS.get('piri.stock.pin') || '', usuario: LS.get('piri.stock.user') || '', productos: [], kits: {}, movimientos: [], pendientes: [], usuarios: [], alias: {}, facturas: [], compras: [], gastos: [], cat: '', vista: 'vInicio' };
+const S = { pin: LS.get('piri.stock.pin') || '', usuario: LS.get('piri.stock.user') || '', productos: [], kits: {}, movimientos: [], pendientes: [], usuarios: [], alias: {}, facturas: [], compras: [], gastos: [], config: {}, cat: '', vista: 'vInicio' };
 const nm = p => p ? p.nombre + (p.color ? ' · ' + p.color : '') : '';
 const estadoDe = p => p.stock <= 0 ? 's' : (p.stock <= p.min ? 'r' : 'ok');
 const ETQ = { ok: 'OK', r: 'Reponer', s: 'Sin stock' };
@@ -287,7 +291,7 @@ async function api(action, data = {}) {
     catch (e) { throw new Error('Sin conexión a internet'); }
     let j; try { j = await r.json(); } catch (e) { throw new Error('No se pudo leer la planilla'); }
     if (!j.ok) throw new Error(j.error || 'Error');
-    Object.assign(S, { productos: j.productos, kits: j.kits, movimientos: j.movimientos, pendientes: j.pendientes, usuarios: j.usuarios, alias: j.alias || {}, facturas: j.facturas || [], compras: j.compras || [], gastos: j.gastos || [] });
+    Object.assign(S, { productos: j.productos, kits: j.kits, movimientos: j.movimientos, pendientes: j.pendientes, usuarios: j.usuarios, alias: j.alias || {}, facturas: j.facturas || [], compras: j.compras || [], gastos: j.gastos || [], config: j.config || {} });
     LS.set('piri.stock.cache', JSON.stringify(j));
     render();
     return j;
@@ -400,10 +404,10 @@ function renderStock() {
       const ps = grupos[n].sort((a, b) => (a.color || '').localeCompare(b.color || ''));
       if (ps.length === 1 && !ps[0].color) {
         const p = ps[0], e = estadoDe(p), pct = Math.max(4, Math.min(100, p.min ? p.stock / (p.min * 3) * 100 : (p.stock > 0 ? 100 : 0)));
-        return `<div class="pr ${e === 'ok' ? '' : e}" onclick="abrirProd('${p.id}')"><div class="tx"><b>${esc(p.nombre)}<span class="b ${e}">${ETQ[e]}</span></b><small>Mínimo ${num(p.min)}${p.costo ? ' · costo ' + pesos(p.costo) : ''}</small><div class="meter"><i style="width:${pct}%"></i></div></div><div class="q"><b>${num(p.stock)}</b><small>${esc(p.unidad)}</small></div></div>`;
+        return `<div class="pr ${e === 'ok' ? '' : e}" onclick="abrirProd('${p.id}')">${thumb(p)}<div class="tx"><b>${esc(p.nombre)}<span class="b ${e}">${ETQ[e]}</span></b><small>Mínimo ${num(p.min)}${p.costo ? ' · costo ' + pesos(p.costo) : ''}</small><div class="meter"><i style="width:${pct}%"></i></div></div><div class="q"><b>${num(p.stock)}</b><small>${esc(p.unidad)}</small></div></div>`;
       }
       const tot = ps.reduce((a, p) => a + p.stock, 0), peor = ps.some(p => estadoDe(p) === 's') ? 's' : ps.some(p => estadoDe(p) === 'r') ? 'r' : 'ok';
-      return `<div class="pr ${peor === 'ok' ? '' : peor} grpc"><div class="tx"><b>${esc(n)}</b><small>${ps.length} colores · mínimo ${num(ps[0].min)} c/u${(ps.find(x => x.costo) || {}).costo ? ' · costo ' + pesos(ps.find(x => x.costo).costo) : ''}</small>
+      return `<div class="pr ${peor === 'ok' ? '' : peor} grpc">${thumb(ps.find(x => x.foto))}<div class="tx"><b>${esc(n)}</b><small>${ps.length} colores · mínimo ${num(ps[0].min)} c/u${(ps.find(x => x.costo) || {}).costo ? ' · costo ' + pesos(ps.find(x => x.costo).costo) : ''}</small>
         <div class="cols">${ps.map(p => `<button class="col ${estadoDe(p)}" onclick="abrirProd('${p.id}')"><i style="background:${colorCss(p.color)}"></i>${esc(p.color || 'Sin color')}<b>${num(p.stock)}</b></button>`).join('')}</div></div>
         <div class="q"><b>${num(tot)}</b><small>en total</small></div></div>`;
     }).join('');
@@ -436,7 +440,12 @@ function renderHist() {
 }
 function renderAjustes() {
   const ks = Object.keys(S.kits).sort();
+  const enCat = S.productos.filter(p => p.catalogo).length;
   $('#vAjustes').innerHTML = `
+  <div class="card"><h3>Catálogo para clientes <em>${enCat} productos</em></h3>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Pasale este link a quien te pregunte qué tenés. Ve fotos, precios y si hay; y te escribe por WhatsApp.</div>
+    <div class="qa" style="grid-template-columns:1fr 1fr;margin-top:0"><button class="a3" onclick="window.open(CAT_URL,'_blank')">👁️ Ver catálogo</button><button class="a1" style="background:#E7F8EE;color:#128C4A" onclick="compartirCatalogo()">💬 Mandar por WhatsApp</button></div>
+    <div class="li" onclick="abrirCatalogoAjustes()" style="margin-top:6px"><div class="ic">⚙️</div><div class="tx"><b>Ajustes del catálogo</b><small>WhatsApp: ${esc((S.config.whatsapp || []).map(t => t.nombre || ('0' + t.numero.slice(3))).join(' y ') || 'sin cargar')} · ${S.config.mostrarCant ? 'muestra cantidades' : 'Disponible / Agotado'}</small></div><span style="color:var(--muted)">›</span></div></div>
   <div class="card"><h3>Productos <em>${S.productos.length}</em></h3>
     ${S.productos.slice().sort((a, b) => nm(a).localeCompare(nm(b))).map(p => `<div class="li" onclick="abrirEditar('${p.id}')"><div class="ic">${esc(p.id)}</div><div class="tx"><b>${esc(nm(p))}</b><small>${esc(p.cat)} · mínimo ${num(p.min)}${p.costo ? ' · ' + pesos(p.costo) : ''}</small></div><span style="color:var(--muted)">›</span></div>`).join('')}
     <button class="add" onclick="abrirEditar()">+ Agregar producto</button></div>
@@ -508,8 +517,9 @@ function abrirProd(id) {
   const ms = S.movimientos.filter(m => m.pid === id).slice(0, 8);
   const kitsCon = Object.keys(S.kits).filter(k => S.kits[k].some(c => c.id === id));
   const hermanos = S.productos.filter(x => x.nombre === p.nombre && x.id !== id);
-  abrir(`<h2>${esc(p.nombre)}</h2><div class="sh-sub">${p.color ? `<span class="col" style="display:inline-flex;padding:3px 9px;margin-right:6px"><i style="background:${colorCss(p.color)}"></i>${esc(p.color)}</span>` : ''}${esc(p.cat)}<span class="b ${e}">${ETQ[e]}</span></div>
-  <div class="bigq"><b>${num(p.stock)}</b><span>${esc(p.unidad)} · mínimo ${num(p.min)}${p.costo ? ' · costo ' + pesos(p.costo) : ''}</span></div>
+  abrir(`${p.foto ? `<img class="fprev" src="${fotoUrl(p.foto, 800)}" alt="" onerror="this.remove()">` : ''}<h2>${esc(p.nombre)}</h2><div class="sh-sub">${p.color ? `<span class="col" style="display:inline-flex;padding:3px 9px;margin-right:6px"><i style="background:${colorCss(p.color)}"></i>${esc(p.color)}</span>` : ''}${esc(p.cat)}<span class="b ${e}">${ETQ[e]}</span></div>
+  <div class="bigq"><b>${num(p.stock)}</b><span>${esc(p.unidad)} · mínimo ${num(p.min)}${p.costo ? ' · costo ' + pesos(p.costo) : ''}${p.precio ? ' · <b style="font-size:14px;color:var(--ok)">venta ' + pesos(p.precio) + '</b>' : ''}</span></div>
+  <div class="qa" style="grid-template-columns:1fr 1fr"><button class="a3" onclick="abrirFoto('${id}')">📷 ${p.foto ? 'Cambiar foto' : 'Foto profesional'}</button><button class="a1" style="background:#E7F8EE;color:#128C4A" onclick="compartirProd('${id}')">💬 Compartir</button></div>
   <div class="qa"><button class="a1" onclick="abrirMov('${id}','Entrada')">+ Compré</button><button class="a2" onclick="abrirMov('${id}','Venta')">− Vendí</button><button class="a3" onclick="abrirMov('${id}','Conteo')"># Conté</button></div>
   ${hermanos.length ? `<div class="cols" style="margin-top:12px">${hermanos.map(x => `<button class="col ${estadoDe(x)}" onclick="abrirProd('${x.id}')"><i style="background:${colorCss(x.color)}"></i>${esc(x.color || 'Sin color')}<b>${num(x.stock)}</b></button>`).join('')}</div>` : ''}
   ${kitsCon.length ? `<div style="font-size:12px;color:var(--muted);margin-top:12px">Se usa en: ${kitsCon.map(esc).join(', ')}</div>` : ''}
@@ -535,21 +545,23 @@ function abrirMovDet(id) {
 function anularMov(id) { if (confirmar('¿Anular? El stock vuelve a como estaba antes de este movimiento.')) enviar('anular', { id }, '✓ Movimiento anulado'); }
 function confirmar(t) { return window.confirm(t); }
 function abrirEditar(id, desdeCompra) {
-  const p = id ? P(id) : { nombre: '', cat: '', unidad: 'unidades', min: 5, costo: '', color: '' };
+  const p = id ? P(id) : { nombre: '', cat: '', unidad: 'unidades', min: 5, costo: '', color: '', precio: '', catalogo: true };
   const cats = [...new Set(S.productos.map(x => x.cat))].sort();
   abrir(`<h2>${id ? 'Editar producto' : 'Producto nuevo'}</h2>${id ? '' : '<div class="sh-sub">Algo nuevo que empezás a vender o comprar</div>'}
   <div class="f"><label>Nombre</label><input id="eN" value="${esc(p.nombre)}" placeholder="Ej.: Termo 1200 ml"></div>
   <div class="f"><label>Categoría</label><input id="eC" list="dlCat" value="${esc(p.cat)}" placeholder="Ej.: Termos y Mates"><datalist id="dlCat">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>
   ${id ? `<div class="f"><label>Color</label><input id="eCol" value="${esc(p.color)}" placeholder="Sin color"></div>` : `<div class="f"><label>Colores (opcional)</label><input id="eCols" placeholder="Ej.: Negro, Blanco, Rosa"><div style="font-size:11.5px;color:var(--muted);margin-top:5px">Si viene en varios colores, escribilos separados por coma y llevo el stock de cada uno.</div></div>`}
   <div class="row2"><div class="f"><label>Unidad</label><input id="eU" value="${esc(p.unidad)}"></div><div class="f"><label>Stock mínimo</label><input id="eM" type="number" inputmode="decimal" value="${p.min}"></div></div>
-  <div class="f"><label>Costo por unidad (opcional)</label><input id="eK" type="number" inputmode="decimal" value="${p.costo === '' ? '' : p.costo}" placeholder="$"></div>
+  <div class="row2"><div class="f"><label>Te cuesta ($)</label><input id="eK" type="number" inputmode="decimal" value="${p.costo === '' ? '' : p.costo}" placeholder="Opcional"></div><div class="f"><label>Precio de venta ($)</label><input id="eP" type="number" inputmode="decimal" value="${p.precio === '' || p.precio == null ? '' : p.precio}" placeholder="Para el catálogo"></div></div>
+  <label class="chk"><input type="checkbox" id="eV" ${!/^n/i.test(p.catRaw || '') ? 'checked' : ''}> Mostrar en el catálogo para clientes</label>
   <div style="font-size:12px;color:var(--muted);margin-top:8px">Cuando el stock llega al mínimo, la app te avisa que hay que reponer.</div>
   <button class="btn-main" data-t="Guardar" onclick="guardarProd('${id || ''}',${desdeCompra ? 'true' : 'false'})">Guardar</button>`);
 }
 function guardarProd(id, desdeCompra) {
   const nombre = $('#eN').value.trim(); if (!nombre) return toast('Poné el nombre', true);
   const k = $('#eK').value.trim();
-  const d = { id, nombre, cat: $('#eC').value.trim() || 'Otros', unidad: $('#eU').value.trim() || 'unidades', min: Number($('#eM').value) || 0, costo: k === '' ? '' : Number(k) };
+  const pv = $('#eP').value.trim();
+  const d = { id, nombre, cat: $('#eC').value.trim() || 'Otros', unidad: $('#eU').value.trim() || 'unidades', min: Number($('#eM').value) || 0, costo: k === '' ? '' : Number(k), precio: pv === '' ? '' : Number(pv), catalogo: $('#eV').checked };
   if (id) { d.color = $('#eCol').value.trim(); d.todosLosColores = true; } else d.colores = $('#eCols').value.split(',').map(x => x.trim()).filter(Boolean);
   enviar('producto', d, id ? '✓ Producto actualizado' : '✓ Producto agregado').then(ok => {
     if (ok && desdeCompra) { const np = S.productos.filter(x => x.nombre === nombre).pop(); abrirMov(np && np.id, 'Entrada'); }
@@ -595,6 +607,70 @@ async function guardarConteoRapido() {
     for (let i = 0; i < L.length; i++) { b.textContent = `Guardando ${i + 1} de ${L.length}…`; await api('conteo', { pid: L[i].dataset.pid, cant: Number(L[i].value) }); }
     cerrar(); toast('✓ Conteo guardado');
   } catch (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Guardar conteo'; }
+}
+
+/* ---------- fotos profesionales y catálogo ---------- */
+const CAT_URL = new URL('catalogo.html', location.href).href;
+const fotoUrl = (fid, w) => fid ? `https://lh3.googleusercontent.com/d/${fid}=w${w || 600}` : '';
+const thumb = (p, cls) => p && p.foto ? `<img class="${cls || 'th'}" src="${fotoUrl(p.foto, 200)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+let FP = null;
+function abrirFoto(id) {
+  const p = P(id); FP = { id };
+  abrir(`<h2>📷 Foto profesional</h2><div class="sh-sub">${esc(nm(p))}</div>
+  ${p.foto ? `<img class="fprev" src="${fotoUrl(p.foto, 800)}" alt="">` : ''}
+  <div class="prev" style="line-height:1.55">Sacala como te salga: la app <b>recorta el producto</b>, le pone <b>fondo blanco</b>, corrige <b>luz y colores</b> y la deja centrada con una sombra suave.<br><span style="color:var(--muted);font-size:12px">La primera vez descarga el recortador (unos 100 MB): mejor con wifi. Después funciona rápido.</span></div>
+  <label class="btn-main" style="display:block;text-align:center;cursor:pointer">📷 Sacar foto<input type="file" accept="image/*" capture="environment" hidden onchange="procesarFoto(this.files[0])"></label>
+  <label class="btn-sec" style="display:block;text-align:center;cursor:pointer">🖼️ Elegir de la galería<input type="file" accept="image/*" hidden onchange="procesarFoto(this.files[0])"></label>
+  <div id="fpProg"></div>`);
+}
+async function procesarFoto(file) {
+  if (!file) return;
+  const pr = $('#fpProg');
+  const avance = (t, p) => pr.innerHTML = `<div class="prev" style="text-align:center">${t}${p != null ? `<div class="meter" style="margin-top:8px"><i style="width:${Math.round(p * 100)}%;background:var(--navy3)"></i></div>` : ''}</div>`;
+  try {
+    avance('Preparando…', null);
+    const { fotoProfesional } = await import('./foto-pro.js');
+    const r = await fotoProfesional(file, avance);
+    FP.pro = r.pro; FP.simple = r.simple; FP.usar = 'pro';
+    const u1 = URL.createObjectURL(r.pro), u2 = URL.createObjectURL(r.simple);
+    abrir(`<h2>¿Cómo quedó?</h2><div class="sh-sub">${esc(nm(P(FP.id)))}${r.recortada ? '' : ' · no pude recortar el fondo, te dejo la foto mejorada'}</div>
+    <img class="fprev" id="fpImg" src="${u1}" alt="">
+    ${r.recortada ? `<div class="seg" style="margin-top:10px"><button class="on" onclick="FP.usar='pro';$('#fpImg').src='${u1}';$$('#shC .seg button').forEach((b,i)=>b.classList.toggle('on',i===0))">Fondo blanco</button><button onclick="FP.usar='simple';$('#fpImg').src='${u2}';$$('#shC .seg button').forEach((b,i)=>b.classList.toggle('on',i===1))">Original mejorada</button></div>` : ''}
+    <button class="btn-main" data-t="Usar esta foto" onclick="subirFoto()">Usar esta foto</button>
+    <button class="btn-sec" onclick="abrirFoto('${FP.id}')">Sacar otra</button>`);
+  } catch (e) { pr.innerHTML = ''; toast('No se pudo procesar la foto: ' + e.message, true); }
+}
+function aDataURL(b) { return new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); }); }
+async function subirFoto() {
+  const b = FP.usar === 'simple' ? FP.simple : FP.pro;
+  const ok = await enviar('foto', { id: FP.id, imagen: await aDataURL(b) }, '✓ Foto guardada y publicada en el catálogo');
+  if (ok) abrirProd(FP.id);
+}
+async function compartirProd(id) {
+  const p = P(id), link = CAT_URL + '#' + id;
+  const txt = `*${nm(p)}*${p.precio ? '\n💲 ' + pesos(p.precio) : ''}\n${p.stock > 0 ? '✅ Disponible' : '⏳ Consultar disponibilidad'}\n\nMirá el catálogo y pedí acá 👉 ${link}`;
+  if (p.foto && navigator.canShare) {
+    try {
+      const r = await fetch(fotoUrl(p.foto, 1200)); const bl = await r.blob();
+      const f = new File([bl], nm(p).replace(/[^\w ]+/g, '') + '.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], text: txt }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  if (navigator.share) { try { await navigator.share({ text: txt }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+}
+async function compartirCatalogo() {
+  const txt = `¡Hola! Te paso el catálogo de *${S.config.nombreCat || 'Pirí'}* 👇\n${CAT_URL}`;
+  if (navigator.share) { try { await navigator.share({ text: txt }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+}
+function abrirCatalogoAjustes() {
+  const c = S.config || {};
+  abrir(`<h2>Catálogo para clientes</h2><div class="sh-sub">Una página con tus productos para pasar por WhatsApp</div>
+  <div class="f"><label>Título del catálogo</label><input id="cN" value="${esc(c.nombreCat || '')}"></div>
+  <div class="f"><label>WhatsApp para pedidos</label><input id="cW" value="${esc((c.whatsapp || []).map(t => (t.nombre ? t.nombre + ': ' : '') + '0' + t.numero.slice(3)).join(', '))}" placeholder="Fer: 094914223, Caro: 095110574"><div style="font-size:11.5px;color:var(--muted);margin-top:5px">Si ponés dos, el cliente elige a quién escribirle.</div></div>
+  <div class="f"><label>Qué ve el cliente del stock</label><div class="seg" id="segQ"><button class="${c.mostrarCant ? '' : 'on'}" onclick="$$('#segQ button').forEach((b,i)=>b.classList.toggle('on',i===0))">Disponible / Agotado</button><button class="${c.mostrarCant ? 'on' : ''}" onclick="$$('#segQ button').forEach((b,i)=>b.classList.toggle('on',i===1))">Cuántas quedan</button></div></div>
+  <button class="btn-main" data-t="Guardar" onclick="enviar('config',{nombreCat:$('#cN').value,whatsapp:$('#cW').value,mostrarCant:$$('#segQ button')[1].classList.contains('on')},'✓ Catálogo actualizado')">Guardar</button>`);
 }
 
 /* ---------- compras y gastos ---------- */
@@ -840,7 +916,7 @@ function abrirFacturaDet(id) {
 
 /* ---------- inicio ---------- */
 (function () {
-  try { const c = JSON.parse(LS.get('piri.stock.cache') || 'null'); if (c) Object.assign(S, { productos: c.productos, kits: c.kits, movimientos: c.movimientos, pendientes: c.pendientes, usuarios: c.usuarios, alias: c.alias || {}, facturas: c.facturas || [], compras: c.compras || [], gastos: c.gastos || [] }); } catch (e) {}
+  try { const c = JSON.parse(LS.get('piri.stock.cache') || 'null'); if (c) Object.assign(S, { productos: c.productos, kits: c.kits, movimientos: c.movimientos, pendientes: c.pendientes, usuarios: c.usuarios, alias: c.alias || {}, facturas: c.facturas || [], compras: c.compras || [], gastos: c.gastos || [], config: c.config || {} }); } catch (e) {}
   if (S.pin) { $('#ovPin').hidden = true; render(); refrescar(true); } else render();
   document.addEventListener('visibilitychange', () => { if (!document.hidden && S.pin) refrescar(true); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});

@@ -1,5 +1,5 @@
 // Pirí Stock · service worker (permite instalarla como app)
-const CACHE = 'piri-stock-v4';
+const CACHE = 'piri-stock-v5';
 const ARCHIVOS = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'logo.png'];
 
 self.addEventListener('install', e => {

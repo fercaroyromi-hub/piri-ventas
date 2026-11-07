@@ -8,7 +8,12 @@ const SS = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(ID_P
 const TZ = 'America/Montevideo';
 const CARPETA_FACTURAS = 'Pirí Stock · Facturas';
 
-function doGet() {
+function doGet(e) {
+  if (e && e.parameter && e.parameter.c) {
+    let out;
+    try { out = Object.assign({ ok: true }, catalogo()); } catch (err) { out = { ok: false, error: err.message }; }
+    return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+  }
   return ContentService.createTextOutput('Pirí Stock funcionando ✓');
 }
 
@@ -45,6 +50,8 @@ function doPost(e) {
         case 'gasto': gasto(d, u); break;
         case 'gastoBorrar': borrarGasto(d.id); break;
         case 'costo': ponerCostoMov(d); break;
+        case 'foto': guardarFoto(d); break;
+        case 'config': guardarConfig(d); break;
         default: throw new Error('Acción desconocida');
       }
       SpreadsheetApp.flush();
@@ -73,12 +80,24 @@ function filas(n) {
   if (last < 2) return [];
   return sh.getRange(2, 1, last - 1, Math.max(1, sh.getLastColumn())).getValues();
 }
+// "Fer: 094914223, Caro: 095110574" → [{nombre:'Fer', numero:'59894914223'}, …]
+function telefonos(txt) {
+  return String(txt || '').split(/[,;\n]/).map(x => x.trim()).filter(String).map(x => {
+    const m = x.match(/^(.*?)[:\s]*([+\d][\d\s-]{6,})$/);
+    let n = (m ? m[2] : x).replace(/\D/g, ''), nom = m ? m[1].trim() : '';
+    if (/^0\d{8}$/.test(n)) n = '598' + n.slice(1); else if (/^9\d{7}$/.test(n)) n = '598' + n;
+    return { nombre: nom, numero: n };
+  }).filter(t => t.numero.length >= 8);
+}
 function leerConfig() {
   const c = {};
   filas('Config').forEach(r => c[String(r[0]).trim()] = r[1]);
   let desde = c['Descontar ventas directas desde'];
   desde = desde instanceof Date ? desde : (desde ? new Date(String(desde) + 'T00:00:00') : new Date());
   return {
+    whatsapp: telefonos(c['WhatsApp pedidos']),
+    nombreCat: String(c['Nombre del catálogo'] || 'Pirí · Diseño Láser').trim(),
+    mostrarCant: /^s/i.test(String(c['Mostrar cantidades en catálogo'] || 'No')),
     pin: String(c['PIN'] || '').trim(),
     usuarios: String(c['Usuarios'] || 'Fer').split(',').map(s => s.trim()).filter(String),
     desde: desde,
@@ -88,7 +107,10 @@ function leerConfig() {
 function productos() {
   return filas('Productos').filter(r => r[0]).map(r => ({
     id: String(r[0]), nombre: String(r[1]), cat: String(r[2] || 'Otros'), unidad: String(r[3] || 'unidades'),
-    min: Number(r[4]) || 0, costo: r[5] === '' ? '' : Number(r[5]) || 0, color: String(r[8] || '').trim()
+    min: Number(r[4]) || 0, costo: r[5] === '' ? '' : Number(r[5]) || 0, color: String(r[8] || '').trim(),
+    precio: r[9] === '' || r[9] == null ? '' : Number(r[9]) || 0, foto: String(r[10] || '').trim(),
+    catalogo: r[11] === '' || r[11] == null ? !!String(r[10] || '').trim() : /^s/i.test(String(r[11])),
+    catRaw: String(r[11] == null ? '' : r[11]).trim()
   }));
 }
 const nombreCompleto = p => p.nombre + (p.color ? ' · ' + p.color : '');
@@ -137,6 +159,7 @@ function estado(cfg) {
   const gastos = filas('Gastos').filter(r => r[0]).map(r => ({ id: String(r[0]), fecha: r[1] instanceof Date ? r[1].getTime() : new Date(r[1]).getTime(),
     usuario: String(r[2]), concepto: String(r[3]), monto: Number(r[4]) || 0, nota: String(r[5] || ''), origen: String(r[6] || '') })).reverse();
   return {
+    config: { whatsapp: cfg.whatsapp, nombreCat: cfg.nombreCat, mostrarCant: cfg.mostrarCant },
     productos: P, kits: kits(), usuarios: cfg.usuarios, alias: aliasFactura(), facturas: F, compras: compras, gastos: gastos,
     movimientos: M.slice(-500).reverse(),
     pendientes: pendientesDirectas(cfg, P)
@@ -222,8 +245,9 @@ function crearProducto(x) {
   const sh = hoja('Productos'), P = filas('Productos');
   if (P.some(r => norm(r[1]) === norm(nombre) && norm(r[8] || '') === norm(color))) throw new Error('Ya existe ' + nombre + (color ? ' · ' + color : ''));
   const id = siguienteId(P), r = sh.getLastRow() + 1;
-  sh.getRange(r, 1, 1, 9).setValues([[id, nombre, String(x.cat || 'Otros').trim(), String(x.unidad || 'unidades').trim(), Number(x.min) || 0,
-    x.costo === '' || x.costo == null ? '' : Number(x.costo), '', '', color]]);
+  sh.getRange(r, 1, 1, 12).setValues([[id, nombre, String(x.cat || 'Otros').trim(), String(x.unidad || 'unidades').trim(), Number(x.min) || 0,
+    x.costo === '' || x.costo == null ? '' : Number(x.costo), '', '', color,
+    x.precio === '' || x.precio == null ? '' : Number(x.precio), '', x.catalogo === false ? 'No' : '']]);
   sh.getRange(r, 7, 1, 2).setFormulas([['=SUMIFS(Movimientos!G:G,Movimientos!E:E,A' + r + ')',
     '=IF(G' + r + '<=0,"Sin stock",IF(G' + r + '<=E' + r + ',"Reponer","OK"))']]);
   return id;
@@ -239,6 +263,8 @@ function guardarProducto(d) {
     const vals = [nombre, String(d.cat || 'Otros').trim(), String(d.unidad || 'unidades').trim(), Number(d.min) || 0, d.costo === '' || d.costo == null ? '' : Number(d.costo)];
     sh.getRange(i + 2, 2, 1, 5).setValues([vals]);
     sh.getRange(i + 2, 9).setValue(String(d.color || '').trim());
+    if ('precio' in d) sh.getRange(i + 2, 10).setValue(d.precio === '' || d.precio == null ? '' : Number(d.precio));
+    if ('catalogo' in d) sh.getRange(i + 2, 12).setValue(d.catalogo ? 'Sí' : 'No');
     // si cambió el nombre, los otros colores del mismo producto también
     if (d.todosLosColores && norm(viejo) !== norm(nombre)) P.forEach((r, j) => { if (j !== i && norm(r[1]) === norm(viejo)) sh.getRange(j + 2, 2, 1, 4).setValues([vals.slice(0, 4)]); });
     return;
@@ -259,7 +285,7 @@ function separarColores(d) {
     sh.getRange(i + 2, 9).setValue(colores[0]);
     lista = colores.slice(1);
   }
-  lista.forEach(c => crearProducto({ nombre: p.nombre, cat: p.cat, unidad: p.unidad, min: p.min, costo: p.costo, color: c }));
+  lista.forEach(c => crearProducto({ nombre: p.nombre, cat: p.cat, unidad: p.unidad, min: p.min, costo: p.costo, precio: p.precio, color: c }));
 }
 function guardarKit(d) {
   const nombre = String(d.nombre || '').trim();
@@ -435,4 +461,45 @@ function ponerCostoMov(d) {
   const pid = String(F[i][4]);
   const ultima = F.map((r, j) => ({ r, j })).filter(x => String(x.r[3]) === 'Entrada' && String(x.r[4]) === pid).pop();
   if (ultima && ultima.j === i) ponerCosto(pid, c);
+}
+
+/* ---------- fotos y catálogo ---------- */
+const CARPETA_FOTOS = 'Pirí Stock · Fotos de productos';
+function carpeta(n) { const it = DriveApp.getFoldersByName(n); return it.hasNext() ? it.next() : DriveApp.createFolder(n); }
+function guardarFoto(d) {
+  const p = prod(d.id);
+  if (!d.imagen) throw new Error('Falta la foto');
+  const blob = Utilities.newBlob(Utilities.base64Decode(String(d.imagen).replace(/^data:image\/\w+;base64,/, '')), 'image/jpeg', nombreCompleto(p) + '.jpg');
+  const f = carpeta(CARPETA_FOTOS).createFile(blob);
+  f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  const sh = hoja('Productos'), P = filas('Productos');
+  const i = P.findIndex(r => String(r[0]) === p.id);
+  const vieja = String(P[i][10] || '').trim();
+  sh.getRange(i + 2, 11).setValue(f.getId());
+  if (String(P[i][11] || '') === '') sh.getRange(i + 2, 12).setValue('Sí');
+  if (vieja) { try { DriveApp.getFileById(vieja).setTrashed(true); } catch (e) {} }
+}
+function guardarConfig(d) {
+  const sh = hoja('Config'), F = filas('Config');
+  const poner = (clave, valor, ayuda) => {
+    const i = F.findIndex(r => String(r[0]).trim() === clave);
+    if (i >= 0) sh.getRange(i + 2, 2).setValue(valor);
+    else { sh.appendRow([clave, valor, ayuda]); F.push([clave, valor]); }
+  };
+  if ('whatsapp' in d) poner('WhatsApp pedidos', String(d.whatsapp || '').trim(), 'Quién recibe los pedidos del catálogo. Ej.: Fer: 094914223, Caro: 095110574');
+  if ('nombreCat' in d) poner('Nombre del catálogo', String(d.nombreCat || '').trim(), 'Título que ven tus clientes en el catálogo.');
+  if ('mostrarCant' in d) poner('Mostrar cantidades en catálogo', d.mostrarCant ? 'Sí' : 'No', 'Sí = el cliente ve cuántas quedan. No = solo Disponible / Agotado.');
+}
+function catalogo() {
+  const cfg = leerConfig(), P = productos(), stock = {};
+  movimientos().forEach(m => stock[m.pid] = (stock[m.pid] || 0) + m.cant);
+  return {
+    nombre: cfg.nombreCat, whatsapp: cfg.whatsapp,
+    productos: P.filter(p => p.catalogo).map(p => {
+      const st = Math.max(0, stock[p.id] || 0);
+      const o = { id: p.id, nombre: p.nombre, color: p.color, cat: p.cat, precio: p.precio, foto: p.foto, disponible: st > 0 };
+      if (cfg.mostrarCant) o.stock = st;
+      return o;
+    })
+  };
 }
