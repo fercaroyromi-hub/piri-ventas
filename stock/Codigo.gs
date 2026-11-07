@@ -3,7 +3,8 @@
  * Pegar este código completo en Extensiones → Apps Script de esa planilla
  * e implementarlo como "Aplicación web" (Ejecutar como: yo · Acceso: cualquier persona).
  */
-const SS = SpreadsheetApp.getActiveSpreadsheet();
+const ID_PLANILLA = '1Rdg3WjKs_1UPHRjkRioRhZMmSkNReuxPn36m25c3ETY';
+const SS = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(ID_PLANILLA);
 const TZ = 'America/Montevideo';
 const CARPETA_FACTURAS = 'Pirí Stock · Facturas';
 
