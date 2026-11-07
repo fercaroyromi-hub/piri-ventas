@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F284A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Pirí Stock</title>
+<script>(function(){var t;try{t=localStorage.getItem('piri.tema')}catch(e){}if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0F284A;--navy:#0F284A;--navy2:#1B3B66;--navy3:#2C5288;--gold:#C9A45C;--gold2:#E3C88E;--bg:#F2F4F8;--card:#fff;--txt:#1C2433;--muted:#6B7689;--line:#E3E7EF;--soft:#F7F9FC;--ok:#1E8E5A;--okbg:#E8F6EF;--warn:#C2410C;--warnbg:#FFF2EA;--red:#C62828;--redbg:#FDECEC;--blue:#2563EB;--bluebg:#EAF1FF;--bar:#DCE3EE}
+[data-theme=dark]{--bg:#0A1220;--card:#121D31;--soft:#18253C;--line:#24344F;--txt:#E6EBF3;--muted:#8E9AB0;--ink:#F3F5FA;--bar:#22324D;--okbg:#10301F;--warnbg:#3A1E0F;--redbg:#3A1515;--bluebg:#132A52}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{background:var(--bg)}
+body{font-family:Montserrat,system-ui,sans-serif;color:var(--txt);padding-bottom:calc(96px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer;color:inherit}
+.appbar{position:sticky;top:0;z-index:5;background:var(--navy);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(15,40,74,.25)}
+[data-theme=dark] .appbar{background:#0D1A2E;border-bottom:1px solid rgba(201,164,92,.25)}
+.logo{width:40px;height:40px;border-radius:11px;overflow:hidden;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.logo img{width:100%;height:100%;display:block}
+.appbar .t{flex:1;min-width:0}
+.appbar small{display:block;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;opacity:.7;font-weight:600}
+.appbar h1{font-size:17px;font-weight:700}
+.hb{width:36px;height:36px;border-radius:10px;border:0;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center}
+.hb svg{width:18px;height:18px}
+.hb.spin svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.avatar{height:36px;padding:0 12px 0 4px;border-radius:18px;border:0;background:rgba(255,255,255,.12);color:#fff;display:flex;align-items:center;gap:7px;font-weight:600;font-size:13px}
+.avatar i{width:28px;height:28px;border-radius:50%;background:var(--gold);color:#0F284A;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:13px}
+.prog{position:fixed;top:0;left:0;height:3px;width:0;background:var(--gold);z-index:50;transition:width .4s}
+.prog.on{width:70%;transition:width 6s cubic-bezier(.1,.7,.2,1)}
+.view{padding:16px}
+.hola{font-size:20px;font-weight:700;color:var(--ink)}
+.sub0{font-size:13px;color:var(--muted);margin-top:2px}
+.hero{margin-top:16px;border-radius:22px;padding:20px;color:#fff;background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 60%,var(--navy3) 100%);box-shadow:0 12px 30px rgba(15,40,74,.28);position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(201,164,92,.35),transparent 70%)}
+.hero span{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;opacity:.75;font-weight:600}
+.hero .big{font-size:34px;font-weight:800;margin-top:6px}
+.hero .sm{font-size:12.5px;opacity:.85;margin-top:6px}
+.kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+.kpi{border:0;text-align:left;background:var(--card);border-radius:16px;padding:13px;box-shadow:0 4px 14px rgba(15,40,74,.06)}
+.kpi span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-weight:700}
+.kpi b{display:block;font-size:24px;margin-top:4px;color:var(--ink)}
+.kpi.ok b{color:var(--ok)}.kpi.warn b{color:var(--warn)}.kpi.red b{color:var(--red)}
+.card{background:var(--card);border-radius:18px;padding:16px;margin-top:14px;box-shadow:0 4px 14px rgba(15,40,74,.06)}
+[data-theme=dark] .card,[data-theme=dark] .kpi,[data-theme=dark] .pr{border:1px solid var(--line);box-shadow:0 4px 18px rgba(0,0,0,.35)}
+.card h3{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.card h3 em{font-style:normal;text-transform:none;letter-spacing:0;color:var(--ink);font-size:12px}
+.vac{color:var(--muted);font-size:13px;text-align:center;padding:12px 0}
+.li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);cursor:pointer}
+.li:first-of-type{border-top:0}
+.li .ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:13px;flex-shrink:0}
+.li .tx{flex:1;min-width:0}
+.li .tx b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .tx small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .n{font-weight:800;font-size:16px;text-align:right;white-space:nowrap}
+.li .n small{display:block;font-size:10.5px;color:var(--muted);font-weight:600}
+.pos{color:var(--ok)}.neg{color:var(--red)}
+.pend{background:var(--warnbg);border:1.5px solid var(--warn);color:var(--warn)}
+.pend h3{color:var(--warn)}
+.pend .li{border-color:rgba(194,65,12,.2)}
+.pend .li .tx small{color:var(--warn);opacity:.8}
+.mini{padding:8px 12px;border-radius:10px;border:0;background:var(--warn);color:#fff;font-weight:700;font-size:12px}
+/* stock */
+.search{position:relative}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted)}
+.search input{padding-left:42px;background:var(--card)}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:12px -16px 4px;padding:0 16px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex-shrink:0;padding:9px 14px;border-radius:20px;border:1.5px solid var(--line);background:var(--card);color:var(--muted);font-weight:600;font-size:13px}
+.chips button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+[data-theme=dark] .chips button.on{background:var(--gold);border-color:var(--gold);color:#0F284A}
+.grp{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:18px 2px 0}
+.pr{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:16px;padding:13px 14px;margin-top:10px;box-shadow:0 4px 14px rgba(15,40,74,.06);border-left:4px solid var(--ok);cursor:pointer}
+.pr.r{border-left-color:var(--warn)}.pr.s{border-left-color:var(--red)}
+.pr .tx{flex:1;min-width:0}
+.pr .tx b{display:block;font-size:14.5px}
+.pr .tx small{display:block;font-size:11.5px;color:var(--muted);margin-top:3px}
+.meter{height:6px;border-radius:4px;background:var(--soft);margin-top:7px;overflow:hidden}
+.meter i{display:block;height:100%;border-radius:4px;background:var(--ok)}
+.pr.r .meter i{background:var(--warn)}.pr.s .meter i{background:var(--red)}
+.pr .q{text-align:right}
+.pr .q b{font-size:24px;font-weight:800;color:var(--ink);display:block;line-height:1}
+.pr .q small{font-size:10.5px;color:var(--muted);font-weight:600}
+.b{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px;margin-left:6px;vertical-align:middle}
+.b.ok{background:var(--okbg);color:var(--ok)}.b.r{background:var(--warnbg);color:var(--warn)}.b.s{background:var(--redbg);color:var(--red)}
+/* formularios */
+.f{margin-top:14px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--soft);color:var(--txt);outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--navy3);background:var(--card)}
+select{-webkit-appearance:none;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 15px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:36px}
+textarea{resize:none;height:64px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:0;font-size:12.5px;font-weight:700;padding:12px 4px;border-radius:12px;border:1.5px solid var(--line);background:var(--soft);color:var(--muted)}
+.seg button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.seg button.in.on{background:var(--ok);border-color:var(--ok)}
+.seg button.outb.on{background:var(--red);border-color:var(--red)}
+.seg button.cnt.on{background:var(--blue);border-color:var(--blue)}
+.stepper{display:flex;align-items:center;border:1.5px solid var(--line);border-radius:12px;background:var(--soft);overflow:hidden}
+.stepper button{width:54px;height:54px;border:0;background:none;font-size:26px;color:var(--ink);font-weight:600;flex-shrink:0}
+.stepper input{border:0;text-align:center;padding:0;background:none;font-weight:800;font-size:22px;min-width:0}
+.prev{margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--soft);font-size:13px;font-weight:600;line-height:1.6}
+.prev b{color:var(--ink)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-main{width:100%;margin-top:18px;padding:17px;border:0;border-radius:16px;background:var(--navy);color:#fff;font-size:16px;font-weight:700;box-shadow:0 10px 24px rgba(15,40,74,.25)}
+[data-theme=dark] .btn-main{background:var(--gold);color:#0F284A}
+.btn-main:disabled{opacity:.5}
+.btn-sec{width:100%;margin-top:10px;padding:14px;border:1.5px solid var(--line);border-radius:16px;background:none;color:var(--ink);font-size:14px;font-weight:700}
+.btn-danger{width:100%;margin-top:10px;padding:14px;border:1.5px solid var(--red);border-radius:16px;background:none;color:var(--red);font-size:14px;font-weight:700}
+.qa{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.qa button{padding:14px 4px;border-radius:14px;border:0;font-weight:700;font-size:13px}
+.qa .a1{background:var(--okbg);color:var(--ok)}.qa .a2{background:var(--redbg);color:var(--red)}.qa .a3{background:var(--bluebg);color:var(--blue)}
+.kitrow{display:grid;grid-template-columns:1fr 84px 36px;gap:8px;margin-top:8px;align-items:center}
+.kitrow input{text-align:center;padding:12px 4px}
+.rmx{width:36px;height:36px;border-radius:50%;border:0;background:var(--redbg);color:var(--red);font-weight:800}
+.add{width:100%;margin-top:10px;padding:12px;border-radius:12px;border:1.5px dashed var(--navy3);background:none;color:var(--navy3);font-weight:700;font-size:14px}
+[data-theme=dark] .add{border-color:var(--gold);color:var(--gold2)}
+.histf{display:flex;gap:8px;margin-top:4px}
+.dia{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:18px 2px 6px}
+.dia::first-letter{text-transform:uppercase}
+.mv .ic.Entrada{background:var(--okbg);color:var(--ok)}
+.mv .ic.Venta,.mv .ic.Salida,.mv .ic.Uso,.mv .ic.Rotura,.mv .ic.Regalo{background:var(--redbg);color:var(--red)}
+.mv .ic.Conteo{background:var(--bluebg);color:var(--blue)}
+.mv .ic.Anulación{background:var(--soft);color:var(--muted)}
+.mv.anul .tx b{text-decoration:line-through;opacity:.6}
+/* hoja inferior */
+.sheet-bg{position:fixed;inset:0;background:rgba(5,12,25,.55);z-index:20;opacity:0;pointer-events:none;transition:.25s}
+.sheet-bg.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:24px 24px 0 0;max-height:92vh;overflow:auto;padding:10px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.sheet.on{transform:none}
+.sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
+.sheet h2{font-size:19px;color:var(--ink);font-weight:800}
+.sheet .sh-sub{font-size:13px;color:var(--muted);margin-top:3px}
+.bigq{display:flex;align-items:baseline;gap:8px;margin-top:14px}
+.bigq b{font-size:44px;font-weight:800;color:var(--ink);line-height:1}
+.bigq span{font-size:14px;color:var(--muted);font-weight:600}
+/* nav */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);display:grid;grid-template-columns:1fr 1fr 84px 1fr 1fr;align-items:end;padding:8px 6px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -4px 20px rgba(15,40,74,.08);border-radius:20px 20px 0 0}
+[data-theme=dark] .nav{box-shadow:0 -4px 20px rgba(0,0,0,.4);border-top:1px solid var(--line)}
+.nav button{border:0;background:none;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:600;padding:6px 0;position:relative}
+.nav button svg{width:22px;height:22px}
+.nav button.on{color:var(--ink)}
+.nav button.on svg{color:var(--gold)}
+.nav .dot{position:absolute;top:2px;right:calc(50% - 18px);min-width:17px;height:17px;border-radius:9px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;padding:0 4px}
+.nav .fab{margin-top:-30px}
+.nav .fab span{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy3));display:grid;place-items:center;color:#fff;box-shadow:0 8px 20px rgba(15,40,74,.35);border:4px solid var(--card)}
+.nav .fab span svg{width:26px;height:26px;color:var(--gold2)}
+/* pin */
+.ov{position:fixed;inset:0;z-index:30;background:linear-gradient(160deg,#0F284A,#1B3B66);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+.ov .lg{width:84px;height:84px;border-radius:22px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.ov .lg img{width:100%;height:100%}
+.ov h2{margin-top:16px;font-size:22px}
+.ov p{opacity:.75;font-size:14px;margin-top:4px;min-height:20px}
+.dots{display:flex;gap:14px;margin:26px 0}
+.dots i{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.6)}
+.dots i.on{background:var(--gold);border-color:var(--gold)}
+.dots.shake{animation:sh .4s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.pad{display:grid;grid-template-columns:repeat(3,72px);gap:14px}
+.pad button{width:72px;height:72px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;font-size:26px;font-weight:600}
+.pad button:active{background:rgba(255,255,255,.25)}
+.pad button.x{background:none;font-size:20px}
+.who{display:grid;gap:12px;width:100%;max-width:320px;margin-top:22px}
+.who button{padding:18px;border-radius:16px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:17px;font-weight:700;display:flex;align-items:center;gap:12px}
+.who button i{width:36px;height:36px;border-radius:50%;background:var(--gold);color:#0F284A;display:grid;place-items:center;font-style:normal;font-weight:800}
+.who .out{border:0;background:none;font-size:13px;font-weight:600;opacity:.7;justify-content:center;text-decoration:underline;padding:8px}
+.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translate(-50%,-170%);background:var(--ok);color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;font-weight:600;transition:.35s;z-index:60;box-shadow:0 8px 20px rgba(0,0,0,.18);max-width:90%;text-align:center}
+.toast.err{background:var(--red)}
+.toast.show{transform:translate(-50%,0)}
+.set .li .ic{background:var(--soft);color:var(--ink)}
+@media(min-width:700px){.view,.appbar{max-width:640px;margin:0 auto}.appbar{border-radius:0 0 18px 18px}.nav,.sheet{max-width:640px;margin:0 auto}}
+</style>
+</head>
+<body>
+<div class="prog" id="prog"></div>
+<div class="toast" id="toast"></div>
+
+<div class="ov" id="ovPin">
+  <div class="lg"><img src="logo.png" alt=""></div>
+  <h2>Pirí Stock</h2>
+  <p id="pinMsg">Ingresá tu PIN</p>
+  <div class="dots" id="pinDots"><i></i><i></i><i></i><i></i></div>
+  <div class="pad" id="pad"></div>
+</div>
+<div class="ov" id="ovWho" hidden>
+  <div class="lg"><img src="logo.png" alt=""></div>
+  <h2>¿Quién sos?</h2>
+  <p>Así queda registrado quién hizo cada movimiento</p>
+  <div class="who" id="whoList"></div>
+</div>
+
+<header class="appbar">
+  <div class="logo"><img src="logo.png" alt=""></div>
+  <div class="t"><small>Pirí · Diseño Láser</small><h1 id="titulo">Stock</h1></div>
+  <button class="hb" id="btnTema" onclick="tema()" aria-label="Tema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+  <button class="hb" id="btnRef" onclick="refrescar()" aria-label="Actualizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg></button>
+  <button class="avatar" onclick="abrirWho()"><i id="avI">?</i><span id="avN">—</span></button>
+</header>
+
+<main>
+  <section class="view" id="vInicio"></section>
+  <section class="view" id="vStock" hidden>
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Buscar producto…" oninput="renderStock()"></div>
+    <div class="chips" id="chips"></div>
+    <div id="lista"></div>
+  </section>
+  <section class="view" id="vHist" hidden>
+    <div class="histf"><select id="hProd" onchange="renderHist()"></select><select id="hTipo" onchange="renderHist()" style="max-width:42%"><option value="">Todo</option><option>Entrada</option><option>Venta</option><option>Salida</option><option>Conteo</option><option>Anulación</option></select></div>
+    <div id="hLista"></div>
+  </section>
+  <section class="view set" id="vAjustes" hidden></section>
+</main>
+
+<nav class="nav">
+  <button data-v="vInicio" class="on" onclick="ir('vInicio')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Inicio<em class="dot" id="dotPend" hidden></em></button>
+  <button data-v="vStock" onclick="ir('vStock')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></svg>Stock</button>
+  <button class="fab" onclick="abrirMov()"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>
+  <button data-v="vHist" onclick="ir('vHist')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></svg>Historial</button>
+  <button data-v="vAjustes" onclick="ir('vAjustes')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes</button>
+</nav>
+
+<div class="sheet-bg" id="shBg" onclick="cerrar()"></div>
+<div class="sheet" id="sh"><div class="grab"></div><div id="shC"></div></div>
+
+<script>
+const API = 'PEGAR_AQUI_LA_URL';
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const LS = { get: k => { try { return localStorage.getItem(k) } catch (e) { return null } }, set: (k, v) => { try { localStorage.setItem(k, v) } catch (e) {} } };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = n => (Math.round(n * 100) / 100).toLocaleString('es-UY');
+const pesos = n => '$ ' + Math.round(n).toLocaleString('es-UY');
+const S = { pin: LS.get('piri.stock.pin') || '', usuario: LS.get('piri.stock.user') || '', productos: [], kits: {}, movimientos: [], pendientes: [], usuarios: [], cat: '', vista: 'vInicio' };
+const estadoDe = p => p.stock <= 0 ? 's' : (p.stock <= p.min ? 'r' : 'ok');
+const ETQ = { ok: 'OK', r: 'Reponer', s: 'Sin stock' };
+const P = id => S.productos.find(p => p.id === id);
+
+function toast(t, err) { const e = $('#toast'); e.textContent = t; e.className = 'toast show' + (err ? ' err' : ''); clearTimeout(e._t); e._t = setTimeout(() => e.className = 'toast' + (err ? ' err' : ''), 2600); }
+function tema() { const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = t; LS.set('piri.tema', t); }
+
+/* ---------- conexión ---------- */
+let pend = 0;
+async function api(action, data = {}) {
+  if (API.indexOf('https://') !== 0) throw new Error('La app todavía no está conectada a la planilla');
+  pend++; $('#prog').classList.add('on'); $('#btnRef').classList.add('spin');
+  try {
+    let r;
+    try { r = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ pin: S.pin, usuario: S.usuario, action }, data)) }); }
+    catch (e) { throw new Error('Sin conexión a internet'); }
+    let j; try { j = await r.json(); } catch (e) { throw new Error('No se pudo leer la planilla'); }
+    if (!j.ok) throw new Error(j.error || 'Error');
+    Object.assign(S, { productos: j.productos, kits: j.kits, movimientos: j.movimientos, pendientes: j.pendientes, usuarios: j.usuarios });
+    LS.set('piri.stock.cache', JSON.stringify(j));
+    render();
+    return j;
+  } finally {
+    if (--pend === 0) { const p = $('#prog'); p.style.width = '100%'; setTimeout(() => { p.classList.remove('on'); p.style.width = ''; }, 300); $('#btnRef').classList.remove('spin'); }
+  }
+}
+async function refrescar(silencio) {
+  if (!S.pin) return;
+  try { await api('init'); if (!silencio) toast('✓ Stock actualizado'); }
+  catch (e) { if (e.message === 'PIN incorrecto') return salir(); if (!silencio) toast(e.message, true); }
+}
+async function enviar(action, data, ok) {
+  const b = $('#shC .btn-main'); if (b) { b.disabled = true; b.textContent = 'Guardando…'; }
+  try { await api(action, data); cerrar(); toast(ok || '✓ Guardado'); return true; }
+  catch (e) { toast(e.message, true); if (b) { b.disabled = false; b.textContent = b.dataset.t || 'Guardar'; } return false; }
+}
+
+/* ---------- PIN ---------- */
+let pinBuf = '';
+$('#pad').innerHTML = ['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k => k === '' ? '<span></span>' : `<button class="${k === '⌫' ? 'x' : ''}" onclick="pinKey('${k}')">${k}</button>`).join('');
+function pinKey(k) {
+  if (k === '⌫') pinBuf = pinBuf.slice(0, -1); else if (pinBuf.length < 4) pinBuf += k;
+  $$('#pinDots i').forEach((d, i) => d.classList.toggle('on', i < pinBuf.length));
+  if (pinBuf.length === 4) entrar();
+}
+async function entrar() {
+  S.pin = pinBuf; $('#pinMsg').textContent = 'Verificando…';
+  try {
+    await api('init'); LS.set('piri.stock.pin', S.pin); $('#ovPin').hidden = true; $('#pinMsg').textContent = 'Ingresá tu PIN';
+    if (!S.usuarios.includes(S.usuario)) abrirWho();
+  } catch (e) {
+    S.pin = ''; $('#pinMsg').textContent = e.message;
+    const d = $('#pinDots'); d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake');
+  }
+  pinBuf = ''; $$('#pinDots i').forEach(d => d.classList.remove('on'));
+}
+function abrirWho() {
+  $('#whoList').innerHTML = S.usuarios.map(v => `<button onclick="elegirUser('${esc(v)}')"><i>${esc(v[0])}</i>${esc(v)}</button>`).join('') + '<button class="out" onclick="salir()">Cerrar sesión</button>';
+  $('#ovWho').hidden = false;
+}
+function elegirUser(v) { S.usuario = v; LS.set('piri.stock.user', v); $('#ovWho').hidden = true; render(); toast('Hola, ' + v + ' 👋'); }
+function salir() { S.pin = ''; LS.set('piri.stock.pin', ''); $('#ovWho').hidden = true; $('#ovPin').hidden = false; }
+
+/* ---------- navegación ---------- */
+const TIT = { vInicio: 'Stock', vStock: 'Mis productos', vHist: 'Historial', vAjustes: 'Ajustes' };
+function ir(v) { S.vista = v; $$('main>section').forEach(s => s.hidden = s.id !== v); $$('.nav [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === v)); $('#titulo').textContent = TIT[v]; scrollTo(0, 0); render(); }
+
+/* ---------- render ---------- */
+function render() {
+  $('#avI').textContent = (S.usuario || '?')[0]; $('#avN').textContent = S.usuario || '—';
+  const d = $('#dotPend'); d.hidden = !S.pendientes.length; d.textContent = S.pendientes.length;
+  if (S.vista === 'vInicio') renderInicio();
+  if (S.vista === 'vStock') renderStock();
+  if (S.vista === 'vHist') renderHist();
+  if (S.vista === 'vAjustes') renderAjustes();
+}
+function prLi(p) {
+  const e = estadoDe(p);
+  return `<div class="li" onclick="abrirProd('${p.id}')"><div class="ic" style="background:var(--${e === 'ok' ? 'okbg' : e === 'r' ? 'warnbg' : 'redbg'});color:var(--${e === 'ok' ? 'ok' : e === 'r' ? 'warn' : 'red'})">${esc(num(p.stock))}</div><div class="tx"><b>${esc(p.nombre)}</b><small>Mínimo ${num(p.min)} · ${esc(p.cat)}</small></div><span class="b ${e}">${ETQ[e]}</span></div>`;
+}
+function renderInicio() {
+  const h = new Date().getHours();
+  const reponer = S.productos.filter(p => estadoDe(p) !== 'ok').sort((a, b) => a.stock - a.min - (b.stock - b.min));
+  const sin = S.productos.filter(p => p.stock <= 0).length, rep = reponer.length - sin;
+  const tot = S.productos.reduce((a, p) => a + Math.max(0, p.stock), 0);
+  const conCosto = S.productos.filter(p => p.costo !== '' && p.costo > 0);
+  const valor = conCosto.reduce((a, p) => a + Math.max(0, p.stock) * p.costo, 0);
+  const sinCargar = !S.movimientos.some(m => m.tipo === 'Conteo' || m.tipo === 'Entrada');
+  const ult = S.movimientos.slice(0, 5);
+  $('#vInicio').innerHTML = `
+  <div class="hola">${h < 12 ? 'Buen día' : h < 20 ? 'Buenas tardes' : 'Buenas noches'}, ${esc(S.usuario || '')}</div>
+  <div class="sub0">${new Date().toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, c => c.toUpperCase())}</div>
+  <div class="hero"><span>Unidades en stock</span><div class="big">${num(tot)}</div><div class="sm">${S.productos.length} productos${conCosto.length ? ' · valen ' + pesos(valor) : ''}</div></div>
+  <div class="kpis">
+    <button class="kpi ok" onclick="filtrarEstado('ok')"><span>Bien</span><b>${S.productos.length - reponer.length}</b></button>
+    <button class="kpi warn" onclick="filtrarEstado('r')"><span>Reponer</span><b>${rep}</b></button>
+    <button class="kpi red" onclick="filtrarEstado('s')"><span>Sin stock</span><b>${sin}</b></button>
+  </div>
+  ${sinCargar ? `<div class="card"><h3>Primer paso</h3><div style="font-size:14px;line-height:1.5">Contá lo que tenés de cada producto y cargalo con <b>Conteo</b>. Tocá un producto en <b>Stock</b> o el botón <b>+</b>.</div><button class="btn-main" data-t="Empezar a contar" onclick="abrirConteoRapido()">Empezar a contar</button></div>` : ''}
+  ${S.pendientes.length ? `<div class="card pend"><h3>Ventas por fuera sin asignar <em style="color:var(--warn)">${S.pendientes.length}</em></h3>
+    <div style="font-size:12.5px;margin-bottom:6px">Decime qué producto se descuenta y la próxima vez lo hago solo.</div>
+    ${S.pendientes.map((v, i) => `<div class="li"><div class="tx"><b>${esc(v.producto)}</b><small>${esc(v.id)} · ${new Date(v.fecha).toLocaleDateString('es-UY')} · ${num(v.cant)} u.${v.veces > 1 ? ' · ' + v.veces + ' ventas' : ''}</small></div><button class="mini" onclick="abrirAsignar(${i})">Asignar</button></div>`).join('')}</div>` : ''}
+  <div class="card"><h3>Para reponer <em>${reponer.length || ''}</em></h3>${reponer.length ? reponer.slice(0, 8).map(prLi).join('') : '<div class="vac">✓ Todo con stock suficiente</div>'}</div>
+  <div class="card"><h3>Últimos movimientos <em onclick="ir('vHist')" style="cursor:pointer">Ver todo ›</em></h3>${ult.length ? ult.map(movLi).join('') : '<div class="vac">Todavía no hay movimientos</div>'}</div>`;
+}
+function filtrarEstado(e) { S.filtroEstado = e; S.cat = ''; ir('vStock'); }
+function renderStock() {
+  const cats = [...new Set(S.productos.map(p => p.cat))].sort();
+  const fe = S.filtroEstado;
+  $('#chips').innerHTML = [['', 'Todos']].concat(fe ? [['@' + fe, fe === 'ok' ? 'Bien' : ETQ[fe]]] : [], cats.map(c => [c, c])).map(([k, t]) =>
+    `<button class="${(k === '' && !S.cat && !fe) || k === S.cat || k === '@' + fe ? 'on' : ''}" onclick="setCat('${esc(k)}')">${esc(t)}</button>`).join('');
+  const q = $('#q').value.trim().toLowerCase();
+  let L = S.productos.filter(p => (!S.cat || p.cat === S.cat) && (!fe || estadoDe(p) === fe) && (!q || (p.nombre + ' ' + p.cat).toLowerCase().includes(q)));
+  if (!L.length) { $('#lista').innerHTML = '<div class="vac" style="padding:40px 0">No hay productos con ese filtro</div>'; return; }
+  const g = {}; L.forEach(p => (g[p.cat] = g[p.cat] || []).push(p));
+  $('#lista').innerHTML = Object.keys(g).sort().map(c => `<div class="grp">${esc(c)}</div>` + g[c].sort((a, b) => a.nombre.localeCompare(b.nombre)).map(p => {
+    const e = estadoDe(p), pct = Math.max(4, Math.min(100, p.min ? p.stock / (p.min * 3) * 100 : (p.stock > 0 ? 100 : 0)));
+    return `<div class="pr ${e === 'ok' ? '' : e}" onclick="abrirProd('${p.id}')"><div class="tx"><b>${esc(p.nombre)}<span class="b ${e}">${ETQ[e]}</span></b><small>Mínimo ${num(p.min)}${p.costo ? ' · ' + pesos(p.costo) + ' c/u' : ''}</small><div class="meter"><i style="width:${pct}%"></i></div></div><div class="q"><b>${num(p.stock)}</b><small>${esc(p.unidad)}</small></div></div>`;
+  }).join('')).join('');
+}
+function setCat(k) { if (k.startsWith('@')) return; S.cat = k; if (k === '') S.filtroEstado = ''; renderStock(); }
+function movLi(m) {
+  const anul = S.movimientos.some(x => x.origen === 'ANULA:' + m.id);
+  const ini = { Entrada: '+', Venta: 'V', Salida: '−', Conteo: '#', Anulación: '↺' }[m.tipo] || '−';
+  return `<div class="li mv ${anul ? 'anul' : ''}" onclick="abrirMovDet('${m.id}')"><div class="ic ${esc(m.tipo)}">${ini}</div><div class="tx"><b>${esc(m.producto)}</b><small>${esc(m.tipo)}${m.canal ? ' · ' + esc(m.canal) : ''} · ${esc(m.usuario)} · ${new Date(m.fecha).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' })}</small></div><div class="n ${m.cant > 0 ? 'pos' : 'neg'}">${m.cant > 0 ? '+' : ''}${num(m.cant)}</div></div>`;
+}
+function renderHist() {
+  const sel = $('#hProd'), v = sel.value;
+  sel.innerHTML = '<option value="">Todos los productos</option>' + S.productos.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('');
+  sel.value = v;
+  const t = $('#hTipo').value;
+  const L = S.movimientos.filter(m => (!sel.value || m.pid === sel.value) && (!t || m.tipo === t));
+  if (!L.length) { $('#hLista').innerHTML = '<div class="vac" style="padding:40px 0">Sin movimientos</div>'; return; }
+  let html = '', dia = '';
+  L.forEach(m => {
+    const d = new Date(m.fecha).toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long' });
+    if (d !== dia) { if (dia) html += '</div>'; dia = d; html += `<div class="dia">${d}</div><div class="card" style="margin-top:0;padding:4px 16px">`; }
+    html += movLi(m);
+  });
+  $('#hLista').innerHTML = html + '</div>';
+}
+function renderAjustes() {
+  const ks = Object.keys(S.kits).sort();
+  $('#vAjustes').innerHTML = `
+  <div class="card"><h3>Productos <em>${S.productos.length}</em></h3>
+    ${S.productos.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map(p => `<div class="li" onclick="abrirEditar('${p.id}')"><div class="ic">${esc(p.id)}</div><div class="tx"><b>${esc(p.nombre)}</b><small>${esc(p.cat)} · mínimo ${num(p.min)}${p.costo ? ' · ' + pesos(p.costo) : ''}</small></div><span style="color:var(--muted)">›</span></div>`).join('')}
+    <button class="add" onclick="abrirEditar()">+ Agregar producto</button></div>
+  <div class="card"><h3>Kits <em>${ks.length}</em></h3>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">Un kit descuenta varios productos juntos (ej.: Termo + Mate).</div>
+    ${ks.map(k => `<div class="li" onclick="abrirKit('${esc(k)}')"><div class="ic">K</div><div class="tx"><b>${esc(k)}</b><small>${S.kits[k].map(c => c.cant + ' × ' + esc((P(c.id) || { nombre: c.id }).nombre)).join(' + ')}</small></div><span style="color:var(--muted)">›</span></div>`).join('')}
+    <button class="add" onclick="abrirKit()">+ Nuevo kit</button></div>
+  <div class="card"><h3>Sesión</h3>
+    <div class="li" onclick="abrirWho()"><div class="ic">${esc((S.usuario || '?')[0])}</div><div class="tx"><b>Cambiar de usuario</b><small>Ahora: ${esc(S.usuario)}</small></div></div>
+    <div class="li" onclick="salir()"><div class="ic">⎋</div><div class="tx"><b>Cerrar sesión</b><small>Pide el PIN de nuevo</small></div></div></div>
+  <div class="vac" style="font-size:11.5px">Las ventas de la app Pirí Ventas se descuentan solas. El PIN y los usuarios se cambian en la planilla, pestaña Config.</div>`;
+}
+
+/* ---------- hojas ---------- */
+function abrir(html) { $('#shC').innerHTML = html; $('#shBg').classList.add('on'); $('#sh').classList.add('on'); $('#sh').scrollTop = 0; }
+function cerrar() { $('#shBg').classList.remove('on'); $('#sh').classList.remove('on'); }
+const stepper = (id, v) => `<div class="stepper"><button type="button" onclick="paso('${id}',-1)">−</button><input id="${id}" type="number" inputmode="decimal" min="0" value="${v}" oninput="prevMov()"><button type="button" onclick="paso('${id}',1)">+</button></div>`;
+function paso(id, d) { const e = $('#' + id); e.value = Math.max(0, (Number(e.value) || 0) + d); prevMov(); }
+const optsProd = sel => S.productos.slice().sort((a, b) => a.cat.localeCompare(b.cat) || a.nombre.localeCompare(b.nombre)).map(p => `<option value="P:${p.id}" ${sel === 'P:' + p.id ? 'selected' : ''}>${esc(p.nombre)} (${num(p.stock)})</option>`).join('');
+const optsDest = sel => (Object.keys(S.kits).length ? '<optgroup label="Kits">' + Object.keys(S.kits).sort().map(k => `<option value="K:${esc(k)}" ${sel === 'K:' + k ? 'selected' : ''}>${esc(k)}</option>`).join('') + '</optgroup>' : '') + '<optgroup label="Productos">' + optsProd(sel) + '</optgroup>';
+
+let M = {};
+function abrirMov(pid, tipo) {
+  M = { tipo: tipo || 'Venta', destino: pid ? 'P:' + pid : '', canal: 'Mercado Libre' };
+  abrir(`<h2>Nuevo movimiento</h2><div class="sh-sub">Elegí qué pasó con la mercadería</div>
+  <div class="f"><div class="seg" id="segT">${[['Venta', 'outb', 'Vendí'], ['Entrada', 'in', 'Compré'], ['Salida', 'outb', 'Usé / rompí'], ['Conteo', 'cnt', 'Conté']].map(([t, c, l]) => `<button class="${c} ${M.tipo === t ? 'on' : ''}" onclick="setTipo('${t}')">${l}</button>`).join('')}</div></div>
+  <div id="movF"></div>`);
+  pintarMov();
+}
+function setTipo(t) { M.tipo = t; if (t !== 'Venta' && M.destino.startsWith('K:')) M.destino = ''; $$('#segT button').forEach(b => b.classList.toggle('on', b.getAttribute('onclick').includes("'" + t + "'"))); pintarMov(); }
+function pintarMov() {
+  const t = M.tipo;
+  $('#movF').innerHTML = `
+  <div class="f"><label>${t === 'Venta' ? 'Qué vendiste' : 'Producto'}</label><select id="mDest" onchange="M.destino=this.value;prevMov()"><option value="">Elegí…</option>${t === 'Venta' ? optsDest(M.destino) : optsProd(M.destino)}</select></div>
+  <div class="f"><label>${t === 'Conteo' ? '¿Cuántas hay en total?' : 'Cantidad'}</label>${stepper('mCant', t === 'Conteo' ? (P(M.destino.slice(2)) || { stock: 0 }).stock : 1)}</div>
+  ${t === 'Venta' ? `<div class="f"><label>Dónde</label><div class="seg" id="segC">${['Mercado Libre', 'Directa', 'Otro'].map(c => `<button class="${M.canal === c ? 'on' : ''}" onclick="M.canal='${c}';$$('#segC button').forEach(b=>b.classList.toggle('on',b.textContent==='${c}'))">${c === 'Directa' ? 'Por fuera' : c}</button>`).join('')}</div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Lo que cargás en Pirí Ventas se descuenta solo, no hace falta cargarlo acá.</div></div>` : ''}
+  ${t === 'Salida' ? `<div class="f"><label>Motivo</label><div class="seg" id="segM">${['Uso', 'Rotura', 'Regalo'].map(c => `<button class="${(M.motivo || 'Uso') === c ? 'on' : ''}" onclick="M.motivo='${c}';$$('#segM button').forEach(b=>b.classList.toggle('on',b.textContent==='${c}'))">${c}</button>`).join('')}</div></div>` : ''}
+  <div class="f"><label>Nota (opcional)</label><input id="mNota" placeholder="${t === 'Entrada' ? 'Ej.: proveedor, precio' : 'Ej.: cliente, detalle'}"></div>
+  <div class="prev" id="mPrev" hidden></div>
+  <button class="btn-main" data-t="Guardar" onclick="guardarMov()">Guardar</button>`;
+  prevMov();
+}
+function prevMov() {
+  const e = $('#mPrev'); if (!e) return;
+  const d = ($('#mDest') || {}).value || '', n = Number(($('#mCant') || {}).value) || 0;
+  if (!d) { e.hidden = true; return; }
+  let comp = d.startsWith('K:') ? (S.kits[d.slice(2)] || []).map(c => ({ p: P(c.id), c: c.cant * n })) : [{ p: P(d.slice(2)), c: n }];
+  comp = comp.filter(x => x.p);
+  e.hidden = false;
+  e.innerHTML = comp.map(({ p, c }) => {
+    const nuevo = M.tipo === 'Conteo' ? n : M.tipo === 'Entrada' ? p.stock + c : p.stock - c;
+    return `${esc(p.nombre)}: ${num(p.stock)} → <b>${num(nuevo)}</b>${nuevo < 0 ? ' <span style="color:var(--red)">(quedaría negativo)</span>' : nuevo <= p.min ? ' <span style="color:var(--warn)">(reponer)</span>' : ''}`;
+  }).join('<br>');
+}
+function guardarMov() {
+  const d = $('#mDest').value, n = Number($('#mCant').value), nota = $('#mNota').value.trim();
+  if (!d) return toast('Elegí el producto', true);
+  if (M.tipo === 'Conteo') { if (!(n >= 0)) return toast('Poné cuántas hay', true); return enviar('conteo', { pid: d.slice(2), cant: n, nota }, '✓ Conteo guardado'); }
+  if (!(n > 0)) return toast('La cantidad tiene que ser mayor a 0', true);
+  if (M.tipo === 'Venta') return enviar('venta', { destino: d, cant: n, canal: M.canal, nota }, '✓ Venta descontada');
+  enviar('mov', { pid: d.slice(2), tipo: M.tipo, motivo: M.motivo || 'Uso', cant: n, nota }, M.tipo === 'Entrada' ? '✓ Entrada sumada' : '✓ Salida descontada');
+}
+function abrirProd(id) {
+  const p = P(id), e = estadoDe(p);
+  const ms = S.movimientos.filter(m => m.pid === id).slice(0, 8);
+  const kitsCon = Object.keys(S.kits).filter(k => S.kits[k].some(c => c.id === id));
+  abrir(`<h2>${esc(p.nombre)}</h2><div class="sh-sub">${esc(p.cat)}<span class="b ${e}">${ETQ[e]}</span></div>
+  <div class="bigq"><b>${num(p.stock)}</b><span>${esc(p.unidad)} · mínimo ${num(p.min)}</span></div>
+  <div class="qa"><button class="a1" onclick="abrirMov('${id}','Entrada')">+ Compré</button><button class="a2" onclick="abrirMov('${id}','Venta')">− Vendí</button><button class="a3" onclick="abrirMov('${id}','Conteo')"># Conté</button></div>
+  ${kitsCon.length ? `<div style="font-size:12px;color:var(--muted);margin-top:12px">Se usa en: ${kitsCon.map(esc).join(', ')}</div>` : ''}
+  <div class="card" style="box-shadow:none;border:1.5px solid var(--line)"><h3>Últimos movimientos</h3>${ms.length ? ms.map(movLi).join('') : '<div class="vac">Sin movimientos</div>'}</div>
+  <button class="btn-sec" onclick="abrirEditar('${id}')">Editar producto</button>`);
+}
+function abrirMovDet(id) {
+  const m = S.movimientos.find(x => x.id === id);
+  const anul = S.movimientos.some(x => x.origen === 'ANULA:' + m.id);
+  abrir(`<h2>${esc(m.tipo)} · ${esc(m.producto)}</h2><div class="sh-sub">${new Date(m.fecha).toLocaleString('es-UY', { dateStyle: 'medium', timeStyle: 'short' })} · ${esc(m.usuario)}</div>
+  <div class="bigq"><b class="${m.cant > 0 ? 'pos' : 'neg'}">${m.cant > 0 ? '+' : ''}${num(m.cant)}</b><span>${esc((P(m.pid) || {}).unidad || '')}</span></div>
+  ${m.canal ? `<div class="prev">Canal: <b>${esc(m.canal)}</b></div>` : ''}${m.nota ? `<div class="prev">${esc(m.nota)}</div>` : ''}
+  ${m.tipo !== 'Anulación' && !anul ? `<button class="btn-danger" onclick="anularMov('${m.id}')">Anular este movimiento</button>` : `<div class="vac">${anul ? 'Este movimiento ya fue anulado' : ''}</div>`}`);
+}
+function anularMov(id) { if (confirmar('¿Anular? El stock vuelve a como estaba antes de este movimiento.')) enviar('anular', { id }, '✓ Movimiento anulado'); }
+function confirmar(t) { return window.confirm(t); }
+function abrirEditar(id) {
+  const p = id ? P(id) : { nombre: '', cat: '', unidad: 'unidades', min: 5, costo: '' };
+  const cats = [...new Set(S.productos.map(x => x.cat))].sort();
+  abrir(`<h2>${id ? 'Editar producto' : 'Nuevo producto'}</h2>
+  <div class="f"><label>Nombre</label><input id="eN" value="${esc(p.nombre)}" placeholder="Ej.: Termo negro 1 L"></div>
+  <div class="f"><label>Categoría</label><input id="eC" list="dlCat" value="${esc(p.cat)}" placeholder="Ej.: Termos y Mates"><datalist id="dlCat">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>
+  <div class="row2"><div class="f"><label>Unidad</label><input id="eU" value="${esc(p.unidad)}"></div><div class="f"><label>Stock mínimo</label><input id="eM" type="number" inputmode="decimal" value="${p.min}"></div></div>
+  <div class="f"><label>Costo por unidad (opcional)</label><input id="eK" type="number" inputmode="decimal" value="${p.costo === '' ? '' : p.costo}" placeholder="$"></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">Cuando el stock llega al mínimo, la app te avisa que hay que reponer.</div>
+  <button class="btn-main" data-t="Guardar" onclick="guardarProd('${id || ''}')">Guardar</button>`);
+}
+function guardarProd(id) {
+  const nombre = $('#eN').value.trim(); if (!nombre) return toast('Poné el nombre', true);
+  const k = $('#eK').value.trim();
+  enviar('producto', { id, nombre, cat: $('#eC').value.trim() || 'Otros', unidad: $('#eU').value.trim() || 'unidades', min: Number($('#eM').value) || 0, costo: k === '' ? '' : Number(k) }, id ? '✓ Producto actualizado' : '✓ Producto agregado');
+}
+let KIT = [];
+function abrirKit(nombre) {
+  KIT = nombre ? S.kits[nombre].map(c => Object.assign({}, c)) : [{ id: '', cant: 1 }, { id: '', cant: 1 }];
+  abrir(`<h2>${nombre ? 'Editar kit' : 'Nuevo kit'}</h2><div class="sh-sub">Qué productos se descuentan cuando vendés este kit</div>
+  <div class="f"><label>Nombre del kit</label><input id="kN" value="${esc(nombre || '')}" placeholder="Ej.: Termo + Mate Peñarol"></div>
+  <div class="f"><label>Productos que lleva</label><div id="kItems"></div><button class="add" onclick="KIT.push({id:'',cant:1});pintarKit()">+ Agregar producto</button></div>
+  <button class="btn-main" data-t="Guardar kit" onclick="guardarKit('${esc(nombre || '')}')">Guardar kit</button>
+  ${nombre ? `<button class="btn-danger" onclick="if(confirmar('¿Borrar este kit?'))enviar('kitBorrar',{nombre:'${esc(nombre)}'},'✓ Kit borrado')">Borrar kit</button>` : ''}`);
+  pintarKit();
+}
+function pintarKit() {
+  $('#kItems').innerHTML = KIT.map((c, i) => `<div class="kitrow"><select onchange="KIT[${i}].id=this.value"><option value="">Elegí…</option>${S.productos.map(p => `<option value="${p.id}" ${c.id === p.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select><input type="number" inputmode="decimal" value="${c.cant}" onchange="KIT[${i}].cant=Number(this.value)"><button class="rmx" onclick="KIT.splice(${i},1);pintarKit()">×</button></div>`).join('');
+}
+function guardarKit(anterior) {
+  const nombre = $('#kN').value.trim(); if (!nombre) return toast('Poné el nombre del kit', true);
+  const items = KIT.filter(c => c.id && c.cant > 0); if (!items.length) return toast('Elegí al menos un producto', true);
+  enviar('kit', { nombre, anterior, items }, '✓ Kit guardado');
+}
+function abrirAsignar(i) {
+  const v = S.pendientes[i];
+  abrir(`<h2>Asignar venta por fuera</h2><div class="sh-sub">En Pirí Ventas se cargó: <b>${esc(v.producto)}</b> (${num(v.cant)} u.)</div>
+  <div class="f"><label>¿Qué se descuenta del stock?</label><select id="aD"><option value="">Elegí…</option>${optsDest('')}<optgroup label="Otro"><option value="IGNORAR">No descontar nada (envío, servicio, etc.)</option></optgroup></select></div>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">Se descuenta esta venta y todas las futuras con ese mismo nombre.</div>
+  <button class="btn-main" data-t="Guardar" onclick="guardarAsig(${i})">Guardar</button>`);
+}
+function guardarAsig(i) { const d = $('#aD').value; if (!d) return toast('Elegí una opción', true); enviar('asignar', { texto: S.pendientes[i].producto, destino: d }, d === 'IGNORAR' ? '✓ No se descuenta' : '✓ Descontado'); }
+function abrirConteoRapido() {
+  const L = S.productos.slice().sort((a, b) => a.cat.localeCompare(b.cat) || a.nombre.localeCompare(b.nombre));
+  abrir(`<h2>Conteo inicial</h2><div class="sh-sub">Poné cuántas unidades tenés de cada uno. Dejá vacío lo que no quieras cargar ahora.</div>
+  ${L.map(p => `<div class="kitrow" style="grid-template-columns:1fr 96px"><div style="font-size:14px;font-weight:600">${esc(p.nombre)}<div style="font-size:11px;color:var(--muted)">${esc(p.cat)}</div></div><input type="number" inputmode="decimal" min="0" data-pid="${p.id}" placeholder="${num(p.stock)}"></div>`).join('')}
+  <button class="btn-main" data-t="Guardar conteo" onclick="guardarConteoRapido()">Guardar conteo</button>`);
+}
+async function guardarConteoRapido() {
+  const L = $$('#shC input[data-pid]').filter(e => e.value.trim() !== '');
+  if (!L.length) return toast('Cargá al menos un producto', true);
+  const b = $('#shC .btn-main'); b.disabled = true;
+  try {
+    for (let i = 0; i < L.length; i++) { b.textContent = `Guardando ${i + 1} de ${L.length}…`; await api('conteo', { pid: L[i].dataset.pid, cant: Number(L[i].value) }); }
+    cerrar(); toast('✓ Conteo guardado');
+  } catch (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Guardar conteo'; }
+}
+
+/* ---------- inicio ---------- */
+(function () {
+  try { const c = JSON.parse(LS.get('piri.stock.cache') || 'null'); if (c) Object.assign(S, { productos: c.productos, kits: c.kits, movimientos: c.movimientos, pendientes: c.pendientes, usuarios: c.usuarios }); } catch (e) {}
+  if (S.pin) { $('#ovPin').hidden = true; render(); refrescar(true); } else render();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && S.pin) refrescar(true); });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+})();
+</script>
+</body>
+</html>
