@@ -5,9 +5,17 @@
  */
 const SS = SpreadsheetApp.getActiveSpreadsheet();
 const TZ = 'America/Montevideo';
+const CARPETA_FACTURAS = 'Pirí Stock · Facturas';
 
 function doGet() {
   return ContentService.createTextOutput('Pirí Stock funcionando ✓');
+}
+
+// Correr una vez desde el editor para dar los permisos (Drive para guardar fotos de facturas)
+function autorizar() {
+  DriveApp.getRootFolder();
+  leerConfig();
+  Logger.log('Listo ✓');
 }
 
 function doPost(e) {
@@ -18,7 +26,7 @@ function doPost(e) {
     if (String(d.pin || '') !== cfg.pin) throw new Error('PIN incorrecto');
     const u = String(d.usuario || '').trim() || '—';
     const lock = LockService.getScriptLock();
-    lock.waitLock(20000);
+    lock.waitLock(25000);
     try {
       switch (d.action) {
         case 'init': sincronizarDirectas(cfg); break;
@@ -27,9 +35,12 @@ function doPost(e) {
         case 'venta': venta(d, u); break;
         case 'anular': anular(d, u); break;
         case 'producto': guardarProducto(d); break;
+        case 'colores': separarColores(d); break;
         case 'kit': guardarKit(d); break;
         case 'kitBorrar': borrarKit(d.nombre); break;
         case 'asignar': asignar(d); sincronizarDirectas(cfg); break;
+        case 'asignarColor': asignarColor(d, u, cfg); break;
+        case 'factura': factura(d, u); break;
         default: throw new Error('Acción desconocida');
       }
       SpreadsheetApp.flush();
@@ -42,11 +53,20 @@ function doPost(e) {
 }
 
 /* ---------- lectura ---------- */
-function hoja(n) { return SS.getSheetByName(n); }
+function hoja(n) {
+  let sh = SS.getSheetByName(n);
+  if (!sh) {
+    const H = { 'Facturas': ['ID', 'Fecha de carga', 'Fecha factura', 'Proveedor', 'Ítems', 'Total', 'Usuario', 'Foto'],
+      'Alias factura': ['Texto en la factura', 'ID producto'] }[n];
+    if (!H) throw new Error('Falta la pestaña ' + n);
+    sh = SS.insertSheet(n); sh.getRange(1, 1, 1, H.length).setValues([H]).setFontWeight('bold'); sh.setFrozenRows(1);
+  }
+  return sh;
+}
 function filas(n) {
   const sh = hoja(n); const last = sh.getLastRow();
   if (last < 2) return [];
-  return sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  return sh.getRange(2, 1, last - 1, Math.max(1, sh.getLastColumn())).getValues();
 }
 function leerConfig() {
   const c = {};
@@ -63,14 +83,16 @@ function leerConfig() {
 function productos() {
   return filas('Productos').filter(r => r[0]).map(r => ({
     id: String(r[0]), nombre: String(r[1]), cat: String(r[2] || 'Otros'), unidad: String(r[3] || 'unidades'),
-    min: Number(r[4]) || 0, costo: r[5] === '' ? '' : Number(r[5]) || 0
+    min: Number(r[4]) || 0, costo: r[5] === '' ? '' : Number(r[5]) || 0, color: String(r[8] || '').trim()
   }));
 }
+const nombreCompleto = p => p.nombre + (p.color ? ' · ' + p.color : '');
 function movimientos() {
   return filas('Movimientos').filter(r => r[0]).map(r => ({
     id: String(r[0]), fecha: r[1] instanceof Date ? r[1].getTime() : new Date(r[1]).getTime(), usuario: String(r[2]),
     tipo: String(r[3]), pid: String(r[4]), producto: String(r[5]), cant: Number(r[6]) || 0,
-    canal: String(r[7] || ''), nota: String(r[8] || ''), origen: String(r[9] || '')
+    canal: String(r[7] || ''), nota: String(r[8] || ''), origen: String(r[9] || ''),
+    costo: r[10] === '' || r[10] == null ? '' : Number(r[10])
   }));
 }
 function kits() {
@@ -86,6 +108,11 @@ function equivalencias() {
   filas('Equivalencias').forEach(r => { if (r[0]) m[norm(r[0])] = String(r[1] || '').trim(); });
   return m;
 }
+function aliasFactura() {
+  const m = {};
+  filas('Alias factura').forEach(r => { if (r[0] && r[1]) m[norm(r[0])] = String(r[1]).trim(); });
+  return m;
+}
 function norm(s) {
   return String(s).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/(?<=[A-Z])0\b/g, 'O').replace(/[^A-Z0-9]+/g, ' ').trim();
@@ -95,15 +122,20 @@ function estado(cfg) {
   const P = productos(), M = movimientos(), stock = {};
   M.forEach(m => stock[m.pid] = (stock[m.pid] || 0) + m.cant);
   P.forEach(p => p.stock = Math.round((stock[p.id] || 0) * 1000) / 1000);
+  const F = filas('Facturas').filter(r => r[0]).slice(-60).reverse().map(r => ({
+    id: String(r[0]), fecha: r[1] instanceof Date ? r[1].getTime() : 0, fechaFac: String(r[2] || ''),
+    proveedor: String(r[3] || ''), items: String(r[4] || ''), total: Number(r[5]) || 0, usuario: String(r[6] || ''), foto: String(r[7] || '')
+  }));
   return {
-    productos: P, kits: kits(), usuarios: cfg.usuarios,
-    movimientos: M.slice(-400).reverse(),
-    pendientes: pendientesDirectas(cfg)
+    productos: P, kits: kits(), usuarios: cfg.usuarios, alias: aliasFactura(), facturas: F,
+    movimientos: M.slice(-500).reverse(),
+    pendientes: pendientesDirectas(cfg, P)
   };
 }
 
 /* ---------- escritura ---------- */
-function nuevoId() { return 'M' + Utilities.formatDate(new Date(), TZ, 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10); }
+let _n = 0;
+function nuevoId(pre) { return (pre || 'M') + Utilities.formatDate(new Date(), TZ, 'yyMMddHHmmss') + (++_n) + Math.floor(Math.random() * 90 + 10); }
 function prod(pid) {
   const p = productos().find(x => x.id === pid);
   if (!p) throw new Error('Producto no encontrado');
@@ -111,22 +143,34 @@ function prod(pid) {
 }
 function agregar(rows) {
   if (!rows.length) return;
+  rows = rows.map(r => { while (r.length < 12) r.push(''); return r; });
   const sh = hoja('Movimientos');
-  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 10).setValues(rows);
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 12).setValues(rows);
 }
-function fila(u, tipo, p, cant, canal, nota, origen) {
-  return [nuevoId(), new Date(), u, tipo, p.id, p.nombre, cant, canal || '', nota || '', origen || ''];
+function fila(u, tipo, p, cant, canal, nota, origen, costo) {
+  const c = costo === '' || costo == null || isNaN(Number(costo)) ? '' : Number(costo);
+  return [nuevoId(), new Date(), u, tipo, p.id, nombreCompleto(p), cant, canal || '', nota || '', origen || '', c, c === '' ? '' : Math.round(c * Math.abs(cant) * 100) / 100];
 }
 function positivo(n) {
   n = Number(n);
   if (!(n > 0)) throw new Error('La cantidad tiene que ser mayor a 0');
   return n;
 }
+function ponerCosto(pid, costo) {
+  if (costo === '' || costo == null || isNaN(Number(costo))) return;
+  const sh = hoja('Productos'), P = filas('Productos');
+  const i = P.findIndex(r => String(r[0]) === pid);
+  if (i >= 0) sh.getRange(i + 2, 6).setValue(Number(costo));
+}
 // tipo: Entrada (+) · Salida (−)
 function movimiento(d, u) {
   const p = prod(d.pid), n = positivo(d.cant);
-  const signo = d.tipo === 'Entrada' ? 1 : -1;
-  agregar([fila(u, d.tipo === 'Entrada' ? 'Entrada' : (d.motivo || 'Salida'), p, signo * n, d.canal, d.nota)]);
+  if (d.tipo === 'Entrada') {
+    agregar([fila(u, 'Entrada', p, n, '', d.nota, '', d.costo)]);
+    ponerCosto(p.id, d.costo);
+  } else {
+    agregar([fila(u, d.motivo || 'Salida', p, -n, d.canal, d.nota)]);
+  }
 }
 function conteo(d, u) {
   const p = prod(d.pid), real = Number(d.cant);
@@ -151,25 +195,61 @@ function venta(d, u) {
   agregar(comp.map(c => fila(u, 'Venta', c.p, -c.cant, d.canal || 'Otro', [etiqueta, d.nota].filter(String).join(' · '))));
 }
 function anular(d, u) {
-  const m = movimientos().find(x => x.id === d.id);
+  const M = movimientos(), m = M.find(x => x.id === d.id);
   if (!m) throw new Error('Movimiento no encontrado');
-  if (m.tipo === 'Anulación' || movimientos().some(x => x.origen === 'ANULA:' + m.id)) throw new Error('Ya estaba anulado');
+  if (m.tipo === 'Anulación' || M.some(x => x.origen === 'ANULA:' + m.id)) throw new Error('Ya estaba anulado');
   agregar([[nuevoId(), new Date(), u, 'Anulación', m.pid, m.producto, -m.cant, m.canal, 'Anula: ' + m.tipo + ' del ' +
     Utilities.formatDate(new Date(m.fecha), TZ, 'dd/MM HH:mm'), 'ANULA:' + m.id]]);
+}
+function siguienteId(P) {
+  const num = P.reduce((a, r) => Math.max(a, parseInt(String(r[0]).replace(/\D/g, '')) || 0), 0) + 1;
+  return 'P' + (num < 10 ? '0' : '') + num;
+}
+function crearProducto(x) {
+  const nombre = String(x.nombre || '').trim();
+  if (!nombre) throw new Error('Falta el nombre');
+  const color = String(x.color || '').trim();
+  const sh = hoja('Productos'), P = filas('Productos');
+  if (P.some(r => norm(r[1]) === norm(nombre) && norm(r[8] || '') === norm(color))) throw new Error('Ya existe ' + nombre + (color ? ' · ' + color : ''));
+  const id = siguienteId(P), r = sh.getLastRow() + 1;
+  sh.getRange(r, 1, 1, 9).setValues([[id, nombre, String(x.cat || 'Otros').trim(), String(x.unidad || 'unidades').trim(), Number(x.min) || 0,
+    x.costo === '' || x.costo == null ? '' : Number(x.costo),
+    '=SUMIFS(Movimientos!G:G,Movimientos!E:E,A' + r + ')',
+    '=IF(G' + r + '<=0,"Sin stock",IF(G' + r + '<=E' + r + ',"Reponer","OK"))', color]]);
+  return id;
 }
 function guardarProducto(d) {
   const nombre = String(d.nombre || '').trim();
   if (!nombre) throw new Error('Falta el nombre');
-  const sh = hoja('Productos'), P = filas('Productos');
-  const vals = [nombre, String(d.cat || 'Otros').trim(), String(d.unidad || 'unidades').trim(), Number(d.min) || 0, d.costo === '' || d.costo == null ? '' : Number(d.costo)];
-  let i = d.id ? P.findIndex(r => String(r[0]) === d.id) : -1;
-  if (i >= 0) { sh.getRange(i + 2, 2, 1, 5).setValues([vals]); return; }
-  if (P.some(r => norm(r[1]) === norm(nombre))) throw new Error('Ya existe un producto con ese nombre');
-  const num = P.reduce((a, r) => Math.max(a, parseInt(String(r[0]).replace(/\D/g, '')) || 0), 0) + 1;
-  const id = 'P' + ('0' + num).slice(-2), r = sh.getLastRow() + 1;
-  sh.getRange(r, 1, 1, 8).setValues([[id].concat(vals, [
-    '=SUMIFS(Movimientos!G:G,Movimientos!E:E,A' + r + ')',
-    '=IF(G' + r + '<=0,"Sin stock",IF(G' + r + '<=E' + r + ',"Reponer","OK"))'])]);
+  if (d.id) {
+    const sh = hoja('Productos'), P = filas('Productos');
+    const i = P.findIndex(r => String(r[0]) === d.id);
+    if (i < 0) throw new Error('Producto no encontrado');
+    const viejo = String(P[i][1]);
+    const vals = [nombre, String(d.cat || 'Otros').trim(), String(d.unidad || 'unidades').trim(), Number(d.min) || 0, d.costo === '' || d.costo == null ? '' : Number(d.costo)];
+    sh.getRange(i + 2, 2, 1, 5).setValues([vals]);
+    sh.getRange(i + 2, 9).setValue(String(d.color || '').trim());
+    // si cambió el nombre, los otros colores del mismo producto también
+    if (d.todosLosColores && norm(viejo) !== norm(nombre)) P.forEach((r, j) => { if (j !== i && norm(r[1]) === norm(viejo)) sh.getRange(j + 2, 2, 1, 4).setValues([vals.slice(0, 4)]); });
+    return;
+  }
+  const colores = (d.colores || []).map(c => String(c).trim()).filter(String);
+  if (!colores.length) return crearProducto(d);
+  colores.forEach(c => crearProducto(Object.assign({}, d, { color: c })));
+}
+// Pasa un producto sin color a tener colores: el producto actual toma el primer color (conserva su stock)
+function separarColores(d) {
+  const p = prod(d.id);
+  const colores = (d.colores || []).map(c => String(c).trim()).filter(String);
+  if (!colores.length) throw new Error('Escribí al menos un color');
+  let lista = colores;
+  if (!p.color) {
+    const sh = hoja('Productos'), P = filas('Productos');
+    const i = P.findIndex(r => String(r[0]) === p.id);
+    sh.getRange(i + 2, 9).setValue(colores[0]);
+    lista = colores.slice(1);
+  }
+  lista.forEach(c => crearProducto({ nombre: p.nombre, cat: p.cat, unidad: p.unidad, min: p.min, costo: p.costo, color: c }));
 }
 function guardarKit(d) {
   const nombre = String(d.nombre || '').trim();
@@ -198,6 +278,39 @@ function asignar(d) {
   else sh.appendRow([texto, d.destino]);
 }
 
+/* ---------- facturas de compra ---------- */
+function factura(d, u) {
+  const items = (d.items || []).filter(x => Number(x.cant) > 0 && (x.pid || x.nuevo));
+  if (!items.length) throw new Error('No hay productos para cargar');
+  const fid = nuevoId('F');
+  const proveedor = String(d.proveedor || '').trim(), fechaFac = String(d.fecha || '').trim();
+  let foto = '';
+  if (d.foto) {
+    try {
+      const it = DriveApp.getFoldersByName(CARPETA_FACTURAS);
+      const carpeta = it.hasNext() ? it.next() : DriveApp.createFolder(CARPETA_FACTURAS);
+      const blob = Utilities.newBlob(Utilities.base64Decode(String(d.foto).replace(/^data:image\/\w+;base64,/, '')), 'image/jpeg',
+        'Factura ' + (proveedor || 'sin proveedor') + ' ' + (fechaFac || Utilities.formatDate(new Date(), TZ, 'dd-MM-yyyy')) + '.jpg');
+      foto = carpeta.createFile(blob).getUrl();
+    } catch (e) { foto = ''; }
+  }
+  const aliasSh = hoja('Alias factura'), A = aliasFactura();
+  const filasMov = [], resumen = [];
+  let total = 0;
+  items.forEach(x => {
+    let pid = x.pid;
+    if (!pid && x.nuevo) pid = crearProducto(x.nuevo);
+    const p = prod(pid), n = Number(x.cant), c = x.costo === '' || x.costo == null ? '' : Number(x.costo);
+    filasMov.push(fila(u, 'Entrada', p, n, '', 'Factura' + (proveedor ? ' ' + proveedor : '') + (fechaFac ? ' · ' + fechaFac : ''), 'FAC:' + fid, c));
+    if (c !== '') { ponerCosto(pid, c); total += c * n; }
+    resumen.push(n + ' × ' + nombreCompleto(p) + (c !== '' ? ' ($' + c + ')' : ''));
+    const t = String(x.texto || '').trim();
+    if (t && norm(t).length > 2 && A[norm(t)] !== pid) { aliasSh.appendRow([t, pid]); A[norm(t)] = pid; }
+  });
+  agregar(filasMov);
+  hoja('Facturas').appendRow([fid, new Date(), fechaFac, proveedor, resumen.join(' · '), Math.round(total * 100) / 100, u, foto]);
+}
+
 /* ---------- ventas de la app Pirí Ventas ---------- */
 function ventasDirectas(cfg) {
   if (!cfg.directas) return [];
@@ -221,9 +334,15 @@ function ventasDirectas(cfg) {
   });
   return out;
 }
+// Si el producto tiene varios colores, no se puede saber cuál se vendió: queda para elegir en la app
+function colores(P, pid) {
+  const p = P.find(x => x.id === pid); if (!p) return [];
+  const g = P.filter(x => norm(x.nombre) === norm(p.nombre));
+  return g.length > 1 ? g : [];
+}
 function sincronizarDirectas(cfg) {
   const V = ventasDirectas(cfg); if (!V.length) return;
-  const eq = equivalencias(), M = movimientos(), hechos = {};
+  const eq = equivalencias(), M = movimientos(), P = productos(), hechos = {};
   M.forEach(m => { if (m.origen.indexOf('VD:') === 0) hechos[m.origen] = (hechos[m.origen] || 0) + m.cant; });
   const nuevas = [];
   V.forEach(v => {
@@ -232,6 +351,7 @@ function sincronizarDirectas(cfg) {
     const ya = Object.prototype.hasOwnProperty.call(hechos, v.clave);
     const neto = hechos[v.clave] || 0;
     if (!v.anulado && !ya) {
+      if (dest.indexOf('P:') === 0 && colores(P, dest.slice(2)).length) return; // espera que elijan el color
       try {
         componentes(dest, v.cant).forEach(c => nuevas.push(fila(v.vendedor || 'App', 'Venta', c.p, -c.cant, 'Venta directa',
           v.id + ' · ' + v.producto + ' × ' + v.cant + (v.cliente ? ' · ' + v.cliente : ''), v.clave)));
@@ -246,10 +366,28 @@ function sincronizarDirectas(cfg) {
   const i = F.findIndex(r => String(r[0]).trim() === 'Última sincronización');
   if (i >= 0) sh.getRange(i + 2, 2).setValue(Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
 }
-function pendientesDirectas(cfg) {
-  const eq = equivalencias(), vistos = {};
-  return ventasDirectas(cfg).filter(v => !v.anulado && !eq[norm(v.producto)]).filter(v => {
-    const k = norm(v.producto); if (vistos[k]) { vistos[k].veces++; return false; }
-    vistos[k] = v; v.veces = 1; return true;
+function pendientesDirectas(cfg, P) {
+  const eq = equivalencias(), vistos = {}, hechos = {};
+  movimientos().forEach(m => { if (m.origen.indexOf('VD:') === 0) hechos[m.origen] = 1; });
+  const out = [];
+  ventasDirectas(cfg).forEach(v => {
+    if (v.anulado) return;
+    const dest = eq[norm(v.producto)];
+    if (!dest) {
+      const k = norm(v.producto); if (vistos[k]) { vistos[k].veces++; return; }
+      vistos[k] = v; v.veces = 1; v.tipo = 'asignar'; out.push(v); return;
+    }
+    if (dest.indexOf('P:') === 0 && !hechos[v.clave]) {
+      const g = colores(P, dest.slice(2));
+      if (g.length) { v.tipo = 'color'; v.opciones = g.map(x => ({ id: x.id, color: x.color || 'Sin color', stock: x.stock })); v.nombre = g[0].nombre; out.push(v); }
+    }
   });
+  return out;
+}
+function asignarColor(d, u, cfg) {
+  const v = ventasDirectas(cfg).find(x => x.clave === d.clave);
+  if (!v) throw new Error('No encontré esa venta');
+  if (movimientos().some(m => m.origen === v.clave)) return;
+  const p = prod(d.pid);
+  agregar([fila(v.vendedor || u, 'Venta', p, -v.cant, 'Venta directa', v.id + ' · ' + v.producto + ' × ' + v.cant + (v.cliente ? ' · ' + v.cliente : ''), v.clave)]);
 }
