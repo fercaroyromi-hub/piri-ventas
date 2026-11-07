@@ -261,7 +261,7 @@ textarea{resize:none;height:64px}
 <div class="sheet" id="sh"><div class="grab"></div><div id="shC"></div></div>
 
 <script>
-const API = 'PEGAR_AQUI_LA_URL';
+const API = 'https://script.google.com/macros/s/AKfycbxCyZEmU8_eqwXoPPWfVz4u1X6NGV-yWTRwROb2FHJ4CwRFjvTXbIqe0Y_qQ9cz71YI/exec';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const LS = { get: k => { try { return localStorage.getItem(k) } catch (e) { return null } }, set: (k, v) => { try { localStorage.setItem(k, v) } catch (e) {} } };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
