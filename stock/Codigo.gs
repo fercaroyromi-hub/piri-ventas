@@ -223,9 +223,9 @@ function crearProducto(x) {
   if (P.some(r => norm(r[1]) === norm(nombre) && norm(r[8] || '') === norm(color))) throw new Error('Ya existe ' + nombre + (color ? ' · ' + color : ''));
   const id = siguienteId(P), r = sh.getLastRow() + 1;
   sh.getRange(r, 1, 1, 9).setValues([[id, nombre, String(x.cat || 'Otros').trim(), String(x.unidad || 'unidades').trim(), Number(x.min) || 0,
-    x.costo === '' || x.costo == null ? '' : Number(x.costo),
-    '=SUMIFS(Movimientos!G:G,Movimientos!E:E,A' + r + ')',
-    '=IF(G' + r + '<=0,"Sin stock",IF(G' + r + '<=E' + r + ',"Reponer","OK"))', color]]);
+    x.costo === '' || x.costo == null ? '' : Number(x.costo), '', '', color]]);
+  sh.getRange(r, 7, 1, 2).setFormulas([['=SUMIFS(Movimientos!G:G,Movimientos!E:E,A' + r + ')',
+    '=IF(G' + r + '<=0,"Sin stock",IF(G' + r + '<=E' + r + ',"Reponer","OK"))']]);
   return id;
 }
 function guardarProducto(d) {
